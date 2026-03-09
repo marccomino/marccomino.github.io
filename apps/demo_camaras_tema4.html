@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Demo WebGL: Geometría Proyectiva y Cámaras</title>
+    <style>
+        body { margin: 0; overflow: hidden; display: flex; font-family: sans-serif; background-color: #222; color: #fff;}
+        #panel { width: 320px; background: #333; padding: 20px; height: 100vh; overflow-y: auto; box-sizing: border-box; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; }
+        #canvas-container { flex: 1; position: relative; }
+        h3 { font-size: 14px; border-bottom: 1px solid #555; padding-bottom: 5px; color: #4da6ff; margin-top: 20px; }
+        h3:first-child { margin-top: 0; }
+        .input-group { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .input-group label { font-size: 12px; font-weight: bold; width: 100px; }
+        .input-group input, .input-group select { width: 60px; background: #444; color: #fff; border: 1px solid #555; padding: 4px; border-radius: 3px; }
+        .input-group select { width: 100%; margin-left: 10px; }
+        .matrix-display { background: #111; padding: 10px; font-family: monospace; font-size: 16px; line-height: 1.4; white-space: pre; border: 1px solid #444; border-radius: 4px; color: #aaffaa; overflow-x: auto;}
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="panel">
+        <h3>Vectores de Vista</h3>
+        <div class="input-group">
+            <label>COP (x, y, z)</label>
+            <input type="number" id="copX" value="0" step="0.5">
+            <input type="number" id="copY" value="0" step="0.5">
+            <input type="number" id="copZ" value="10" step="0.5">
+        </div>
+        <div class="input-group">
+            <label>lookAt (x, y, z)</label>
+            <input type="number" id="lookX" value="0" step="0.5">
+            <input type="number" id="lookY" value="0" step="0.5">
+            <input type="number" id="lookZ" value="-1" step="0.5">
+        </div>
+        <div class="input-group">
+            <label>VUP (x, y, z)</label>
+            <input type="number" id="upX" value="0" step="0.1">
+            <input type="number" id="upY" value="1" step="0.1">
+            <input type="number" id="upZ" value="0" step="0.1">
+        </div>
+
+        <h3>Tipo de Cámara</h3>
+        <div class="input-group">
+            <select id="camType">
+                <option value="persp">Perspectiva</option>
+                <option value="ortho">Ortográfica</option>
+            </select>
+        </div>
+
+        <h3>Volumen de Visión</h3>
+        <div id="persp-params">
+            <div class="input-group">
+                <label>FOV (grados)</label>
+                <input type="number" id="fov" value="45" step="1">
+            </div>
+            <div class="input-group">
+                <label>Aspect (Ra)</label>
+                <input type="number" id="aspect" value="1" step="0.1">
+            </div>
+        </div>
+
+        <div id="ortho-params" style="display: none;">
+            <div class="input-group">
+                <label>Left / Right</label>
+                <input type="number" id="left" value="-4" step="0.5">
+                <input type="number" id="right" value="4" step="0.5">
+            </div>
+            <div class="input-group">
+                <label>Bottom / Top</label>
+                <input type="number" id="bottom" value="-4" step="0.5">
+                <input type="number" id="top" value="4" step="0.5">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Z near</label>
+            <input type="number" id="near" value="1" step="0.5">
+        </div>
+        <div class="input-group">
+            <label>Z far</label>
+            <input type="number" id="far" value="15" step="1">
+        </div>
+
+        <h3>Matriz de Vista (View)</h3>
+        <div id="viewMatrix" class="matrix-display"></div>
+
+        <h3>Matriz de Proyección</h3>
+        <div id="projMatrix" class="matrix-display"></div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        const container = document.getElementById('canvas-container');
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.autoClear = false;
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const gridHelper = new THREE.GridHelper(40, 40, 0x444444, 0x222222);
+        scene.add(gridHelper);
+        const axesHelper = new THREE.AxesHelper(5);
+        scene.add(axesHelper);
+
+        const cubeGeo = new THREE.BoxGeometry(2, 2, 2);
+        const cubeMat = new THREE.MeshBasicMaterial({ color: 0xff4da6, wireframe: true });
+        const cube = new THREE.Mesh(cubeGeo, cubeMat);
+        cube.position.set(-2, 1, 0);
+        scene.add(cube);
+
+        const sphereGeo = new THREE.SphereGeometry(1.2, 16, 16);
+        const sphereMat = new THREE.MeshBasicMaterial({ color: 0x4da6ff, wireframe: true });
+        const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.position.set(2, 1.2, -1);
+        scene.add(sphere);
+
+        function createTree(x, z) {
+            const group = new THREE.Group();
+            
+            const trunkGeo = new THREE.CylinderGeometry(0.2, 0.2, 1, 8);
+            const trunkMat = new THREE.MeshBasicMaterial({ color: 0x8b5a2b, wireframe: true });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 0.5;
+            
+            const leavesGeo = new THREE.ConeGeometry(0.8, 1.5, 8);
+            const leavesMat = new THREE.MeshBasicMaterial({ color: 0x228b22, wireframe: true });
+            const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+            leaves.position.y = 1.75; 
+            
+            group.add(trunk);
+            group.add(leaves);
+            group.position.set(x, 0, z);
+            scene.add(group);
+        }
+
+        function createHouse(x, z) {
+            const group = new THREE.Group();
+            
+            const baseGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+            const baseMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, wireframe: true });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            base.position.y = 0.75;
+            
+            const roofGeo = new THREE.ConeGeometry(1.4, 1, 4);
+            const roofMat = new THREE.MeshBasicMaterial({ color: 0xcc4444, wireframe: true });
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.y = 2.0; 
+            roof.rotation.y = Math.PI / 4; 
+            
+            group.add(base);
+            group.add(roof);
+            group.position.set(x, 0, z);
+            scene.add(group);
+        }
+
+        createHouse(3, -4);
+        createTree(-3, -5);
+        createHouse(-4, -9);
+        createTree(4, -10);
+        createTree(-2, -14);
+        createHouse(2, -16);
+        createTree(5, -19);
+        createHouse(-3, -22);
+
+        const camera3rdPerson = new THREE.PerspectiveCamera(50, (container.clientWidth / 2) / container.clientHeight, 0.1, 100);
+        camera3rdPerson.position.set(15, 12, 15);
+        camera3rdPerson.lookAt(0, 0, -5);
+
+        const cameraPersp = new THREE.PerspectiveCamera(45, 1, 1, 15);
+        const cameraOrtho = new THREE.OrthographicCamera(-4, 4, 4, -4, 1, 15);
+        let activeCamera = cameraPersp;
+
+        const helperPersp = new THREE.CameraHelper(cameraPersp);
+        const helperOrtho = new THREE.CameraHelper(cameraOrtho);
+        scene.add(helperPersp);
+        scene.add(helperOrtho);
+
+        const controls = new THREE.OrbitControls(camera3rdPerson, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, -5);
+
+        function formatMatrix(matrix) {
+            const e = matrix.elements;
+            let str = "";
+            for (let i = 0; i < 4; i++) {
+                str += e[i].toFixed(2).padStart(6, ' ') + " " + 
+                       e[i+4].toFixed(2).padStart(6, ' ') + " " + 
+                       e[i+8].toFixed(2).padStart(6, ' ') + " " + 
+                       e[i+12].toFixed(2).padStart(6, ' ') + "\n";
+            }
+            return str;
+        }
+
+        function toggleUI() {
+            const type = document.getElementById('camType').value;
+            document.getElementById('persp-params').style.display = type === 'persp' ? 'block' : 'none';
+            document.getElementById('ortho-params').style.display = type === 'ortho' ? 'block' : 'none';
+            updateCamera();
+        }
+
+        document.getElementById('camType').addEventListener('change', toggleUI);
+
+        function updateCamera() {
+            const type = document.getElementById('camType').value;
+            const copX = parseFloat(document.getElementById('copX').value);
+            const copY = parseFloat(document.getElementById('copY').value);
+            const copZ = parseFloat(document.getElementById('copZ').value);
+            
+            const lookX = parseFloat(document.getElementById('lookX').value);
+            const lookY = parseFloat(document.getElementById('lookY').value);
+            const lookZ = parseFloat(document.getElementById('lookZ').value);
+
+            const upX = parseFloat(document.getElementById('upX').value);
+            const upY = parseFloat(document.getElementById('upY').value);
+            const upZ = parseFloat(document.getElementById('upZ').value);
+
+            const near = parseFloat(document.getElementById('near').value);
+            const far = parseFloat(document.getElementById('far').value);
+
+            activeCamera = type === 'persp' ? cameraPersp : cameraOrtho;
+
+            activeCamera.position.set(copX, copY, copZ);
+
+            // Calculamos n = -lookAt / |lookAt|
+            const lookNorm = Math.sqrt(lookX*lookX + lookY*lookY + lookZ*lookZ);
+            const nX = - lookX / lookNorm;
+            const nY = - lookY / lookNorm;
+            const nZ = - lookZ / lookNorm;
+
+            const targetX = copX - nX;
+            const targetY = copY - nY;
+            const targetZ = copZ - nZ;
+            activeCamera.lookAt(targetX, targetY, targetZ);
+
+            // Calculamos v = normalize(VUp - (VUp . n) * n) mediante Gram-Schmidt
+            const dotUpN = upX * nX + upY * nY + upZ * nZ;
+            const vRawX = upX - dotUpN * nX;
+            const vRawY = upY - dotUpN * nY;
+            const vRawZ = upZ - dotUpN * nZ;
+
+            const vNorm = Math.sqrt(vRawX*vRawX + vRawY*vRawY + vRawZ*vRawZ);
+            const vX = vRawX / vNorm;
+            const vY = vRawY / vNorm;
+            const vZ = vRawZ / vNorm;
+            activeCamera.up.set(vX, vY, vZ);
+
+            // Calculamos u = v x n mediante producto vectorial
+            const uX = vY * nZ - vZ * nY;
+            const uY = vZ * nX - vX * nZ;
+            const uZ = vX * nY - vY * nX;
+
+            // Mostramos los resultados didácticos en la consola
+            console.log("Base ortonormal de la cámara:");
+            console.log("u (Right):", uX.toFixed(4), uY.toFixed(4), uZ.toFixed(4));
+            console.log("v (Up):   ", vX.toFixed(4), vY.toFixed(4), vZ.toFixed(4));
+            console.log("n (Back): ", nX.toFixed(4), nY.toFixed(4), nZ.toFixed(4));
+
+            if (type === 'persp') {
+                activeCamera.fov = parseFloat(document.getElementById('fov').value);
+                activeCamera.aspect = parseFloat(document.getElementById('aspect').value);
+            } else {
+                activeCamera.left = parseFloat(document.getElementById('left').value);
+                activeCamera.right = parseFloat(document.getElementById('right').value);
+                activeCamera.top = parseFloat(document.getElementById('top').value);
+                activeCamera.bottom = parseFloat(document.getElementById('bottom').value);
+            }
+
+            activeCamera.near = near;
+            activeCamera.far = far;
+            activeCamera.updateProjectionMatrix();
+            activeCamera.updateMatrixWorld();
+
+            if (type === 'persp') {
+                helperPersp.update();
+            } else {
+                helperOrtho.update();
+            }
+
+            const viewMatrix = new THREE.Matrix4().copy(activeCamera.matrixWorldInverse);
+            document.getElementById('viewMatrix').textContent = formatMatrix(viewMatrix);
+            document.getElementById('projMatrix').textContent = formatMatrix(activeCamera.projectionMatrix);
+        }
+
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', updateCamera);
+        });
+
+        updateCamera();
+
+        function render() {
+            requestAnimationFrame(render);
+            
+            controls.update();
+
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const type = document.getElementById('camType').value;
+
+            renderer.setScissorTest(true);
+
+            const leftWidth = width / 2;
+            renderer.setViewport(0, 0, leftWidth, height);
+            renderer.setScissor(0, 0, leftWidth, height);
+            
+            helperPersp.visible = type === 'persp';
+            helperOrtho.visible = type === 'ortho';
+            
+            renderer.render(scene, camera3rdPerson);
+
+            renderer.setViewport(leftWidth, 0, width - leftWidth, height);
+            renderer.setScissor(leftWidth, 0, width - leftWidth, height);
+            
+            helperPersp.visible = false;
+            helperOrtho.visible = false;
+            
+            renderer.render(scene, activeCamera);
+
+            renderer.setScissorTest(false);
+        }
+
+        window.addEventListener('resize', () => {
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            camera3rdPerson.aspect = (container.clientWidth / 2) / container.clientHeight;
+            camera3rdPerson.updateProjectionMatrix();
+        });
+
+        render();
+    </script>
+</body>
+</html>

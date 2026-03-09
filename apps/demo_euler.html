@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualizador Euler Rz Rx Rz</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; overflow: hidden; }
+        #panel-izquierdo { width: 350px; padding: 20px; background-color: #2a2a2a; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; overflow-y: auto; }
+        #panel-derecho { flex-grow: 1; display: block; }
+        .control-grupo { margin-bottom: 25px; }
+        label { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .matriz-contenedor { margin-top: 10px; background-color: #111; padding: 10px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 14px; text-align: right; }
+        .fila { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 5px; }
+        .titulo-matriz { color: #888; font-size: 12px; margin-bottom: 5px; text-align: left; }
+        #Rz1-titulo { color: #5555ff; }
+        #Rx-titulo { color: #ff5555; }
+        #Rz2-titulo { color: #55ffff; }
+    </style>
+</head>
+<body>
+
+    <div id="panel-izquierdo">
+        <h2>Controles Rz Rx Rz</h2>
+        
+        <div class="control-grupo">
+            <label id="Rz1-titulo"><span>Ángulo Z1 (Precesión)</span> <span id="val-z1">0°</span></label>
+            <input type="range" id="slider-z1" min="-180" max="180" value="0">
+            <div class="matriz-contenedor">
+                <div class="titulo-matriz">Matriz Rz(1)</div>
+                <div id="matriz-z1"></div>
+            </div>
+        </div>
+
+        <div class="control-grupo">
+            <label id="Rx-titulo"><span>Ángulo X (Nutación)</span> <span id="val-x">0°</span></label>
+            <input type="range" id="slider-x" min="-180" max="180" value="0">
+            <div class="matriz-contenedor">
+                <div class="titulo-matriz">Matriz Rx</div>
+                <div id="matriz-x"></div>
+            </div>
+        </div>
+
+        <div class="control-grupo">
+            <label id="Rz2-titulo"><span>Ángulo Z2 (Rotación)</span> <span id="val-z2">0°</span></label>
+            <input type="range" id="slider-z2" min="-180" max="180" value="0">
+            <div class="matriz-contenedor">
+                <div class="titulo-matriz">Matriz Rz(2)</div>
+                <div id="matriz-z2"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-derecho"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const contenedor = document.getElementById('panel-derecho');
+        const escena = new THREE.Scene();
+        escena.background = new THREE.Color(0x000000);
+
+        const camara = new THREE.PerspectiveCamera(45, contenedor.clientWidth / contenedor.clientHeight, 0.1, 1000);
+        camara.position.set(6, 6, 8);
+        camara.lookAt(0, 0, 0);
+
+        const renderizador = new THREE.WebGLRenderer({ antialias: true });
+        renderizador.setSize(contenedor.clientWidth, contenedor.clientHeight);
+        contenedor.appendChild(renderizador.domElement);
+
+        const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6);
+        escena.add(luzAmbiente);
+        const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.8);
+        luzDireccional.position.set(10, 20, 10);
+        escena.add(luzDireccional);
+
+        const ejes = new THREE.AxesHelper(4);
+        escena.add(ejes);
+
+        const gimbalZ1 = new THREE.Group();
+        escena.add(gimbalZ1);
+
+        const gimbalX = new THREE.Group();
+        gimbalZ1.add(gimbalX);
+
+        const gimbalZ2 = new THREE.Group();
+        gimbalX.add(gimbalZ2);
+
+        const grupoAvion = new THREE.Group();
+        gimbalZ2.add(grupoAvion);
+        
+        const materialCuerpo = new THREE.MeshPhongMaterial({ color: 0x888888 });
+        const cuerpoGeo = new THREE.CylinderGeometry(0.3, 0.3, 3, 32);
+        cuerpoGeo.rotateX(Math.PI / 2);
+        const cuerpo = new THREE.Mesh(cuerpoGeo, materialCuerpo);
+        grupoAvion.add(cuerpo);
+
+        const materialAlas = new THREE.MeshPhongMaterial({ color: 0x444444 });
+        const alasGeo = new THREE.BoxGeometry(4, 0.1, 1);
+        const alas = new THREE.Mesh(alasGeo, materialAlas);
+        alas.position.set(0, 0, 0.2);
+        grupoAvion.add(alas);
+
+        const colaGeo = new THREE.BoxGeometry(1.5, 0.1, 0.5);
+        const cola = new THREE.Mesh(colaGeo, materialAlas);
+        cola.position.set(0, 0, -1.2);
+        grupoAvion.add(cola);
+
+        const timonGeo = new THREE.BoxGeometry(0.1, 1, 0.5);
+        const timon = new THREE.Mesh(timonGeo, materialAlas);
+        timon.position.set(0, 0.5, -1.2);
+        grupoAvion.add(timon);
+
+        const crearAnillo = (color, radio, rotX, rotY) => {
+            const geometria = new THREE.TorusGeometry(radio, 0.05, 16, 100);
+            const material = new THREE.MeshBasicMaterial({ color: color });
+            const anillo = new THREE.Mesh(geometria, material);
+
+            const marcadorGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const marcador = new THREE.Mesh(marcadorGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            marcador.position.set(radio, 0, 0);
+            anillo.add(marcador);
+
+            if (rotX) anillo.rotation.x = rotX;
+            if (rotY) anillo.rotation.y = rotY;
+            return anillo;
+        };
+
+        const anilloZ1 = crearAnillo(0x5555ff, 3.6, 0, 0); 
+        gimbalZ1.add(anilloZ1);
+
+        const anilloX = crearAnillo(0xff5555, 3.3, 0, Math.PI / 2); 
+        gimbalX.add(anilloX);
+
+        const anilloZ2 = crearAnillo(0x55ffff, 3.0, 0, 0);
+        gimbalZ2.add(anilloZ2);
+
+        const sliderZ1 = document.getElementById('slider-z1');
+        const sliderX = document.getElementById('slider-x');
+        const sliderZ2 = document.getElementById('slider-z2');
+        const valZ1 = document.getElementById('val-z1');
+        const valX = document.getElementById('val-x');
+        const valZ2 = document.getElementById('val-z2');
+
+        function formatearNumero(num) {
+            return (num >= 0 ? " " : "") + num.toFixed(2);
+        }
+
+        function renderizarMatriz(contenedorId, matriz) {
+            let html = "";
+            for (let i = 0; i < 3; i++) {
+                html += "<div class='fila'>";
+                for (let j = 0; j < 3; j++) {
+                    let valor = Math.abs(matriz[i][j]) < 0.0001 ? 0 : matriz[i][j];
+                    html += `<span>${formatearNumero(valor)}</span>`;
+                }
+                html += "</div>";
+            }
+            document.getElementById(contenedorId).innerHTML = html;
+        }
+
+        function actualizarMatricesYRotacion() {
+            const angZ1 = parseFloat(sliderZ1.value);
+            const angX = parseFloat(sliderX.value);
+            const angZ2 = parseFloat(sliderZ2.value);
+
+            valZ1.textContent = angZ1 + "°";
+            valX.textContent = angX + "°";
+            valZ2.textContent = angZ2 + "°";
+
+            const radZ1 = THREE.MathUtils.degToRad(angZ1);
+            const radX = THREE.MathUtils.degToRad(angX);
+            const radZ2 = THREE.MathUtils.degToRad(angZ2);
+
+            gimbalZ1.rotation.z = radZ1;
+            gimbalX.rotation.x = radX;
+            gimbalZ2.rotation.z = radZ2;
+
+            const cz1 = Math.cos(radZ1), sz1 = Math.sin(radZ1);
+            const cx = Math.cos(radX), sx = Math.sin(radX);
+            const cz2 = Math.cos(radZ2), sz2 = Math.sin(radZ2);
+
+            renderizarMatriz('matriz-z1', [
+                [cz1, -sz1, 0],
+                [sz1, cz1, 0],
+                [0, 0, 1]
+            ]);
+
+            renderizarMatriz('matriz-x', [
+                [1, 0, 0],
+                [0, cx, -sx],
+                [0, sx, cx]
+            ]);
+
+            renderizarMatriz('matriz-z2', [
+                [cz2, -sz2, 0],
+                [sz2, cz2, 0],
+                [0, 0, 1]
+            ]);
+        }
+
+        sliderZ1.addEventListener('input', actualizarMatricesYRotacion);
+        sliderX.addEventListener('input', actualizarMatricesYRotacion);
+        sliderZ2.addEventListener('input', actualizarMatricesYRotacion);
+
+        actualizarMatricesYRotacion();
+
+        function animar() {
+            requestAnimationFrame(animar);
+            renderizador.render(escena, camara);
+        }
+        animar();
+
+        window.addEventListener('resize', () => {
+            camara.aspect = contenedor.clientWidth / contenedor.clientHeight;
+            camara.updateProjectionMatrix();
+            renderizador.setSize(contenedor.clientWidth, contenedor.clientHeight);
+        });
+    </script>
+</body>
+</html>

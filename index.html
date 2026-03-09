@@ -5,71 +5,467 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Academic Portfolio</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 40px 20px; color: #333; }
-        h1 { color: #2c3e50; font-size: 2.5em; margin-bottom: 5px; }
-        h2 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 40px; }
-        .intro-text { font-size: 1.1em; color: #555; }
-        section { margin-bottom: 40px; }
-        .paper-entry { margin-bottom: 25px; }
-        .paper-title { font-weight: bold; font-size: 1.1em; color: #2980b9; }
-        .paper-authors { font-style: italic; color: #666; }
-        .profile-links a { display: inline-block; margin-right: 20px; color: #2980b9; text-decoration: none; font-weight: bold; }
-        .profile-links a:hover { text-decoration: underline; }
-        .added-section { background-color: #f8f9fa; padding: 15px; border-left: 4px solid #2980b9; }
+        /* =========================================
+        GLOBAL STYLES & LAYOUT
+        ========================================= */
+        body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        }
+
+        .content-wrapper {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        }
+
+        section {
+        margin-bottom: 40px;
+        }
+
+        h2 {
+        color: #2c3e50;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        margin-top: 0px;
+        }
+
+        .clearfix::after {
+        content: "";
+        clear: both;
+        display: table;
+        }
+
+        /* =========================================
+        HEADER & NAVIGATION
+        ========================================= */
+        .site-header {
+        background-color: #333;
+        padding: 15px 40px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        }
+
+        .site-title {
+        color: #ccc;
+        font-size: 1.8em;
+        margin: 0;
+        margin-right: 40px;
+        font-weight: normal;
+        }
+
+        .nav-links a {
+        color: #aaa;
+        text-decoration: none;
+        margin-right: 25px;
+        font-size: 1.1em;
+        }
+
+        .nav-links a:hover {
+        color: #fff;
+        }
+
+        .social-links {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        }
+
+        .social-links a {
+        color: #aaa;
+        text-decoration: none;
+        margin-left: 20px;
+        font-size: 1.1em;
+        }
+
+        /* =========================================
+        BIOGRAPHY SECTION
+        ========================================= */
+        .bio-section {
+        margin-bottom: 40px;
+        }
+
+        .bio-img {
+        float: left;
+        width: 160px;
+        height: 160px;
+        object-fit: cover;
+        margin-right: 20px;
+        margin-bottom: 10px;
+        background-color: #eee;
+        }
+
+        .bio-text {
+        text-align: justify;
+        }
+
+        /* =========================================
+        PROFILE LINKS & HIGHLIGHTED SECTIONS
+        ========================================= */
+        .added-section {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-left: 4px solid #2980b9;
+        }
+
+        .profile-links a {
+        display: inline-block;
+        margin-right: 20px;
+        color: #2980b9;
+        text-decoration: none;
+        font-weight: bold;
+        }
+
+        .profile-links a:hover {
+        text-decoration: underline;
+        }
+
+        /* =========================================
+        RESEARCH PAPER CARDS
+        ========================================= */
+        .paper-entry { 
+            margin-bottom: 25px; 
+        }
+
+        .paper-card { 
+            background-color: #ffffff; 
+            border-radius: 12px; 
+            padding: 30px; 
+            margin-bottom: 35px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            border: 1px solid #f0f0f0; 
+        }
+
+        .paper-img { 
+            width: 80%; 
+            max-width: 450px; 
+            height: auto; 
+            aspect-ratio: 16/9; 
+            object-fit: cover; 
+            border-radius: 8px; 
+            background-color: #ddd; 
+            margin-bottom: 25px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+        }
+
+        .paper-info { 
+            width: 100%; 
+            text-align: center; 
+        }
+
+        .paper-title { 
+            margin: 0 0 12px 0; 
+            font-size: 1.4em; 
+            color: #002e5d; 
+            font-weight: 700; 
+        }
+
+        .paper-authors { 
+            margin: 0 0 10px 0; 
+            color: #555; 
+            font-size: 0.95em; 
+        }
+
+        .paper-venue { 
+            margin: 0 0 20px 0; 
+            color: #777; 
+            font-size: 0.95em; 
+            font-weight: 500; 
+        }
+
+        /* =========================================
+        BUTTONS
+        ========================================= */
+        .paper-buttons { 
+            display: flex; 
+            gap: 12px; 
+            justify-content: center; 
+        }
+
+        .btn { 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            text-decoration: none; 
+            font-weight: 600; 
+            font-size: 0.85em; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+            border: none; 
+            transition: all 0.2s ease; 
+        }
+
+        .btn-pdf { 
+            color: #c0392b; 
+            background-color: #fadbd8; 
+        }
+
+        .btn-pdf:hover { 
+            background-color: #c0392b; 
+            color: #ffffff; 
+        }
+
+        .btn-video { 
+            color: #d35400; 
+            background-color: #fdebd0; 
+        }
+
+        .btn-video:hover { 
+            background-color: #d35400; 
+            color: #ffffff; 
+        }
+
+        .btn-web { 
+            color: #2980b9; 
+            background-color: #d6eaf8; 
+        }
+
+        .btn-web:hover { 
+            background-color: #2980b9; 
+            color: #ffffff; 
+        }
+
+        .btn-doi { 
+            color: #8e44ad; 
+            background-color: #ebdef0; 
+        }
+
+        .btn-doi:hover { 
+            background-color: #8e44ad; 
+            color: #ffffff; 
+        }
+
+        /* =========================================
+        TEACHING CARDS
+        ========================================= */
+        .teaching-card { 
+            background-color: #ffffff; 
+            border-radius: 12px; 
+            padding: 25px; 
+            margin-bottom: 30px; 
+            display: flex; 
+            align-items: center; 
+            gap: 30px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            border: 1px solid #f0f0f0; 
+        }
+
+        .teaching-img { 
+            width: 260px; 
+            height: 160px; 
+            object-fit: cover; 
+            border-radius: 8px; 
+            background-color: #ddd; 
+            flex-shrink: 0; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+        }
+
+        .teaching-info { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: flex-start; 
+        }
+
+        .teaching-title { 
+            margin: 0 0 10px 0; 
+            font-size: 1.4em; 
+            color: #002e5d; 
+            font-weight: 700; 
+        }
+
+        .teaching-desc { 
+            margin: 0 0 20px 0; 
+            color: #555; 
+            font-size: 1em; 
+            text-align: justify; 
+        }
+
+        .btn-try { 
+            color: #27ae60; 
+            background-color: #d5f5e3; 
+        }
+
+        .btn-try:hover { 
+            background-color: #27ae60; 
+            color: #ffffff; 
+        }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Your Name</h1>
-        <p class="intro-text">Brief introduction or biography goes here. You can detail your current academic position, primary research interests, and background.</p>
+
+    <header class="site-header">
+        <h1 class="site-title">Marc Comino-Trinidad</h1>
+        <nav class="nav-links">
+            <a href="#research">Research</a>
+            <a href="#students">Students</a>
+            <a href="#teaching">Teaching</a>
+            <a href="#contact">Contact</a>
+        </nav>
     </header>
 
-    <section class="added-section">
-        <h2>**Research Linked Sites**</h2>
-        <p class="profile-links">
-            **<a href="#">Google Scholar</a> 
-            <a href="#">ORCID</a> 
-            <a href="#">ResearchGate</a> 
-            <a href="#">LinkedIn</a>**
-        </p>
-        <p>**You can find my complete publication record, citation metrics, and academic profiles on the platforms linked above.**</p>
-    </section>
+    <div class="content-wrapper">
+        <section class="bio-section clearfix">
+            <img src="images/profile.jpg" alt="Profile Picture" class="bio-img">
+            <p class="bio-text">I hold a PhD in Computing (receiving the Outstanding <a href=https://upcommons.upc.edu/entities/publication/1ffc27d0-c2b5-4433-b34e-55255700bdf9>Doctoral Thesis Award</a>) and a Master's in Innovation and Research in Informatics (graduating top of my class) from the Universitat Politècnica de Catalunya (UPC). My research focuses on computer graphics, crowd animation, and avatar digitization. My professional background encompasses extensive experience in the technological research sector, spanning both public institutions and collaborations with industry partners such as Hewlett Packard and Arquimea Research Center, alongside research stays at Google (across its Zurich, Mountain View, Seattle, and San Francisco offices).</p>
+            <p class="bio-text">Currently, I am an <a href=https://servicios.urjc.es/pdi/ver/marc.comino>Assistant Professor</a> at the Universidad Rey Juan Carlos (URJC), having previously served as a Distinguished Researcher for four years. I have taught across various undergraduate and graduate programs, notably the Master in Innovation and Research in Informatics and the Bachelor's Degree in Computer Engineering at the UPC, the Bachelor's Degree in Automotive Engineering at the Universitat de Vic (UVic), and the Master's Degree in Computer Graphics, Games, and Virtual Reality, as well as the Bachelor's Degree in Video Game Design and Development at the URJC.</p>
+            <p class="bio-text">I have led competitive projects as a Principal Investigator, including a Public-Private Collaboration project funded by the Ministry of Science and Innovation and technology transfer contracts with Arquimea Research Center. I have also participated as a researcher in other national and European initiatives, such as the <a href=https://cordis.europa.eu/project/id/899739>CrowdDNA</a> project. I have published more than ten articles in JCR journals, with notable contributions in ACM Transactions on Graphics (Q1) and Computer-Aided Design (Q1), and I am the co-author of two international patents. I have presented numerous works at leading international conferences, including ICCV, BMVC, WACV, and SGP, and have held positions of responsibility in scientific events, particularly serving as program committee chair for <a href=https://www.eurographics.es/ceig23/>CEIG 2023</a> and <a href=https://www.stag-conference.org/2025/>STAG 2025</a>, in addition to joining the executive board of the Spanish Chapter of Eurographics.</p>
+        </section>
 
-    <section>
-        <h2>News</h2>
-        <p>This space is ideal for your latest updates. You can write short paragraphs about recently accepted papers, upcoming conferences, or newly released datasets.</p>
-    </section>
+        <section class="added-section">
+            <h2>Research Linked Sites</h2>
+            <p class="profile-links">
+                <a href="https://scholar.google.es/citations?user=5b5lpdjyjg0C" style="color: #4285F4;">Google Scholar</a>
+                <a href="https://orcid.org/0000-0001-5621-7565" style="color: #A6CE39;">ORCID</a>
+                <a href="https://www.scopus.com/authid/detail.uri?authorId=57191881369" style="color: #E9711C;">Scopus</a>
+                <a href="https://www.webofscience.com/wos/author/rid/AAB-4364-2021" style="color: #5E3A8C;">Web of Science</a>
+                <a href="https://www.linkedin.com/in/marccomino" style="color: #0A66C2;">LinkedIn</a>
+            </p>
+            <p>You can find my complete publication record, citation metrics, and academic profiles on the platforms linked above.</p>
+        </section>
 
-    <section>
-        <h2>Research</h2>
+        <section id="research">
+            <h2>Research</h2>
 
-        <div class="paper-entry">
-            <p class="paper-title">Resolving Collisions in Dense 3D Crowd Animations</p>
-            <p class="paper-authors">Author Name, Author Name, Author Name</p>
-            <p>Brief description or abstract of the paper goes here. You can add links to the PDF document, the source code repository, or supplementary video materials directly in this paragraph.</p>
-        </div>
+            <div class="paper-card">
+                <img src="images/2024resolving.jpg" alt="Resolving Collisions Thumbnail" class="paper-img">
+                <div class="paper-info">
+                    <h3 class="paper-title">Resolving Collisions in Dense 3D Crowd Animations</h3>
+                    <p class="paper-authors"><a href=https://gonzalogn.com/>Gonzalo Gomez-Nogales*</a>, Melania Prieto-Martin*, Cristian Romero, <a href=https://marccomino.github.io/>Marc Comino-Trinidad</a>, Pablo Ramon-Prieto, Anne-Helene Olivier, <a href="https://people.rennes.inria.fr/Ludovic.Hoyet/">Ludovic Hoyet</a>, <a href="https://mslab.es/otaduy/">Miguel Otaduy</a>, <a href="https://people.rennes.inria.fr/Julien.Pettre/">Julien Pettre</a>, <a href="http://dancasas.github.io">Dan Casas</a></p>
+                    <p class="paper-venue">ACM Transactions on Graphics (presented at SIGGRAPH Asia) &bull; 2024</p>
+                    <div class="paper-buttons">
+                        <a href="https://dancasas.github.io/docs/gomez-nogales_TOG2024.pdf" class="btn btn-pdf">&#128196; PDF</a>
+                        <a href="https://www.youtube.com/watch?v=gP8FFeKRqx0" class="btn btn-video">&#9654; Video</a>
+                        <a href="https://mslab.es/projects/Dense3DCrowds/" class="btn btn-web
+                        ">&#128279; Web</a>
+                        <a href="https://doi.org/10.1145/3687266" class="btn btn-doi">&#128214; DOI</a>
+                    </div>
+                </div>
+            </div>
 
-        <div class="paper-entry">
-            <p class="paper-title">SMPLitex: A Generative Model and Dataset for 3D Human Texture Estimation from Single Image</p>
-            <p class="paper-authors">Author Name, Author Name, Author Name</p>
-            <p>Brief description or abstract of the paper goes here. You can add links to the PDF document, the source code repository, or supplementary video materials directly in this paragraph.</p>
-        </div>
+            <div class="paper-card">
+                <img src="images/2023smplitex.png" alt="SMPLitex Thumbnail" class="paper-img">
+                <div class="paper-info">
+                    <h3 class="paper-title">SMPLitex: A Generative Model and Dataset for 3D Human Texture Estimation from Single Image</h3>
+                    <p class="paper-authors"><a href="http://dancasas.github.io">Dan Casas</a>, <a href=https://marccomino.github.io/>Marc Comino-Trinidad</a></p>
+                    <p class="paper-venue">British Machine Vision Conference (BMVC) &bull; 2023</p>
+                    <div class="paper-buttons">
+                        <a href="https://dancasas.github.io/docs/casas_BMVC2023.pdf" class="btn btn-pdf">&#128196; PDF</a>
+                        <a href="https://youtu.be/_rNrDOE7o7U?si=LZevRrSU5-ijPvuo" class="btn btn-video">&#9654; Video</a>
+                        <a href="https://dancasas.github.io/projects/SMPLitex/index.html" class="btn btn-web
+                        ">&#128279; Web</a>
+                        <a href="https://proceedings.bmvc2023.org/272/" class="btn btn-doi">&#128214; DOI</a>
+                    </div>
+                </div>
+            </div>
 
-        <div class="paper-entry">
-            <p class="paper-title">PERGAMO: Personalized 3D Garments from Monocular Video</p>
-            <p class="paper-authors">Author Name, Author Name, Author Name</p>
-            <p>Brief description or abstract of the paper goes here. You can add links to the PDF document, the source code repository, or supplementary video materials directly in this paragraph.</p>
-        </div>
-    </section>
+            <div class="paper-card">
+                <img src="images/2022pergamo.png" alt="PERGAMO Thumbnail" class="paper-img">
+                <div class="paper-info">
+                    <h3 class="paper-title">PERGAMO: Personalized 3D Garments from Monocular Video</h3>
+                    <p class="paper-authors"><a href="https://andrescasado.gitlab.io/">Andrés Casado-Elvira</a>, <a href=https://marccomino.github.io/>Marc Comino-Trinidad</a>, <a href="http://dancasas.github.io">Dan Casas</a></p>
+                    <p class="paper-venue">Computer Graphics Forum (Proc. of ACM Symposium on Computer Animation, SCA) &bull; 2022</p>
+                    <div class="paper-buttons">
+                        <a href="https://dancasas.github.io/docs/casado-elvira_SCA2022.pdf" class="btn btn-pdf">&#128196; PDF</a>
+                        <a href="https://www.youtube.com/watch?v=giaHHW6R6pk" class="btn btn-video">&#9654; Video</a>
+                        <a href="http://mslab.es/projects/PERGAMO/" class="btn btn-web
+                        ">&#128279; Web</a>
+                        <a href="https://doi.org/10.1111/cgf.14644" class="btn btn-doi">&#128214; DOI</a>
+                    </div>
+                </div>
+            </div>
 
-    <section>
-        <h2>Teaching</h2>
-        <p>Here you can detail the courses you are currently teaching. For the Geometric Modeling course, this is the perfect place to link the WebGL demonstrations for Euler angles and perspective cameras that you host on your GitHub Pages.</p>
-    </section>
+        </section>
 
-    <section>
-        <h2>Team</h2>
-        <p>Information about your graduate students, academic collaborators, or members of your research group can be formatted as short biographies here.</p>
-    </section>
+        <section id="students">
+            <h2>Students</h2>
+
+            <h3 class="student-h3">Ongoing PhD Students</h3>
+            <div class="student-group">
+                <div class="student-item">
+                    <span class="student-name unlinked">Melania Prieto-Martin</span>
+                </div>
+                <div class="student-item">
+                    <a href="https://gonzalogn.com/" class="student-name">Gonzalo Gómez-Nogales</a>
+                </div>
+                <div class="student-item">
+                    <span class="student-name unlinked">Henar Hernández-Elvira</span>
+                </div>
+                <div class="student-item">
+                    <span class="student-name unlinked">Álvaro Olavarría Bezanilla</span>
+                </div>
+                <div class="student-item">
+                    <span class="student-name unlinked">Marcos Arroyo Ruiz</span>
+                </div>
+            </div>
+
+            <h3 class="student-h3">Past PhD Students</h3>
+            <div class="student-group">
+                <div class="student-item">
+                    <a href="#" class="student-name"></a>
+                </div>
+                <div class="student-item">
+                    <a href="https://andrescasado.gitlab.io/" class="student-name">Andrés Casado-Elvira</a>
+                    <span class="student-period">PhD 2019 - 2025</span>
+                    <a href="https://aplicaciones.ciencia.gob.es/teseo/#/tesis/O872953/detalle" class="thesis-link">[pdf thesis]</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="teaching">
+            <h2>Teaching</h2>
+            <p>Below are the interactive WebGL demonstrations developed for the Geometric Modeling course.</p>
+
+            <div class="teaching-card">
+                <img src="images/app-euler-thumbnail.png" alt="Euler Angles Demo" class="teaching-img">
+                <div class="teaching-info">
+                    <h3 class="teaching-title">Euler Angles</h3>
+                    <p class="teaching-desc">This interactive WebGL demonstration illustrates the concept of Euler angles for 3D rotations. You can manipulate the gimbal rings to understand pitch, yaw, and roll, and intuitively observe the phenomenon of gimbal lock in real time.</p>
+                    <a href="apps/demo_euler.html" class="btn btn-try">&#127918; Try it!</a>
+                </div>
+            </div>
+
+            <div class="teaching-card">
+                <img src="images/app-camera-thumbnail.png" alt="Perspective Camera Demo" class="teaching-img">
+                <div class="teaching-info">
+                    <h3 class="teaching-title">Perspective Cameras</h3>
+                    <p class="teaching-desc">Explore the mathematics behind perspective projection matrices. This demo allows you to adjust the field of view, aspect ratio, and near and far clipping planes to see exactly how they affect the final rendered image of a 3D scene.</p>
+                    <a href="apps/demo_camaras_tema4.html" class="btn btn-try">&#127918; Try it!</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact">
+            <h2>Contact</h2>
+
+            <h4>Postal address</h4>
+            <p>
+                Despacho 20<br/>
+                Edificio de Biblioteca<br/>
+                C/Tulipán s/n,<br/>
+                28933 Móstoles, Madrid<br/>
+                Spain<br/>
+            </p>
+            
+            <h4>Internet</h4>
+            <span style="margin-right: 8px; font-size: 1.2em;">&#9993;</span> <a href="mailto:marc.comino@urjc.es">marc.comino@urjc.es</a><br>
+            <span style="margin-right: 8px; font-size: 0.8em;">&#127760;</span> <a href="http://marccomino.github.io">marccomino.github.io</a><br>
+    
+            <i class=""></i><br>
+
+            <iframe width="100%" height="300" src="https://www.openstreetmap.org/export/embed.html?bbox=-3.8823795318603516%2C40.33331259355685%2C-3.872594833374024%2C40.33992868174411&amp;layer=mapnik&amp;marker=40.33662071874287%2C-3.8774871826171875" style="border:0"></iframe>
+            <!-- Barra horitzontal -->
+            <hr>
+
+        </section>
+    </div>
 </body>
 </html>
