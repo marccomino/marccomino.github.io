@@ -2,17 +2,26 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Visualizador Euler Rz Rx Rz</title>
+    <title>Visualizador Euler Rz Rx Rz Mejorado</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; overflow: hidden; }
-        #panel-izquierdo { width: 350px; padding: 20px; background-color: #2a2a2a; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; overflow-y: auto; }
+        #panel-izquierdo { width: 350px; padding: 20px; background-color: #2a2a2a; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; overflow-y: auto; box-sizing: border-box; }
         #panel-derecho { flex-grow: 1; display: block; }
+        
+        h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #555; padding-bottom: 10px; color: #fff; }
+        
         .control-grupo { margin-bottom: 25px; }
-        label { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; }
-        input[type="range"] { width: 100%; cursor: pointer; }
-        .matriz-contenedor { margin-top: 10px; background-color: #111; padding: 10px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 14px; text-align: right; }
-        .fila { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 5px; }
-        .titulo-matriz { color: #888; font-size: 12px; margin-bottom: 5px; text-align: left; }
+        label { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+        
+        .rango-grupo { display: flex; align-items: center; gap: 10px; }
+        .rango-grupo input[type="range"] { flex-grow: 1; cursor: pointer; }
+        .rango-grupo input[type="number"] { width: 60px; background: #111; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; text-align: center; font-family: Arial, sans-serif; font-size: 12px; }
+        .rango-grupo input[type="number"]:focus { outline: none; border-color: #4da6ff; }
+
+        .matriz-contenedor { margin-top: 15px; background-color: #111; padding: 10px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 14px; text-align: right; border: 1px solid #333; }
+        .fila { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 5px; color: #aaffaa; }
+        .titulo-matriz { color: #888; font-size: 12px; margin-bottom: 8px; text-align: left; text-transform: uppercase; letter-spacing: 1px; }
+        
         #Rz1-titulo { color: #5555ff; }
         #Rx-titulo { color: #ff5555; }
         #Rz2-titulo { color: #55ffff; }
@@ -24,8 +33,11 @@
         <h2>Controles Rz Rx Rz</h2>
         
         <div class="control-grupo">
-            <label id="Rz1-titulo"><span>Ángulo Z1 (Precesión)</span> <span id="val-z1">0°</span></label>
-            <input type="range" id="slider-z1" min="-180" max="180" value="0">
+            <label id="Rz1-titulo"><span>Ángulo Z1 (Precesión)</span></label>
+            <div class="rango-grupo">
+                <input type="range" id="slider-z1" min="-180" max="180" value="0">
+                <input type="number" id="input-z1" min="-180" max="180" value="0">
+            </div>
             <div class="matriz-contenedor">
                 <div class="titulo-matriz">Matriz Rz(1)</div>
                 <div id="matriz-z1"></div>
@@ -33,8 +45,11 @@
         </div>
 
         <div class="control-grupo">
-            <label id="Rx-titulo"><span>Ángulo X (Nutación)</span> <span id="val-x">0°</span></label>
-            <input type="range" id="slider-x" min="-180" max="180" value="0">
+            <label id="Rx-titulo"><span>Ángulo X (Nutación)</span></label>
+            <div class="rango-grupo">
+                <input type="range" id="slider-x" min="-180" max="180" value="0">
+                <input type="number" id="input-x" min="-180" max="180" value="0">
+            </div>
             <div class="matriz-contenedor">
                 <div class="titulo-matriz">Matriz Rx</div>
                 <div id="matriz-x"></div>
@@ -42,8 +57,11 @@
         </div>
 
         <div class="control-grupo">
-            <label id="Rz2-titulo"><span>Ángulo Z2 (Rotación)</span> <span id="val-z2">0°</span></label>
-            <input type="range" id="slider-z2" min="-180" max="180" value="0">
+            <label id="Rz2-titulo"><span>Ángulo Z2 (Rotación)</span></label>
+            <div class="rango-grupo">
+                <input type="range" id="slider-z2" min="-180" max="180" value="0">
+                <input type="number" id="input-z2" min="-180" max="180" value="0">
+            </div>
             <div class="matriz-contenedor">
                 <div class="titulo-matriz">Matriz Rz(2)</div>
                 <div id="matriz-z2"></div>
@@ -135,11 +153,11 @@
         gimbalZ2.add(anilloZ2);
 
         const sliderZ1 = document.getElementById('slider-z1');
+        const inputZ1 = document.getElementById('input-z1');
         const sliderX = document.getElementById('slider-x');
+        const inputX = document.getElementById('input-x');
         const sliderZ2 = document.getElementById('slider-z2');
-        const valZ1 = document.getElementById('val-z1');
-        const valX = document.getElementById('val-x');
-        const valZ2 = document.getElementById('val-z2');
+        const inputZ2 = document.getElementById('input-z2');
 
         function formatearNumero(num) {
             return (num >= 0 ? " " : "") + num.toFixed(2);
@@ -158,14 +176,21 @@
             document.getElementById(contenedorId).innerHTML = html;
         }
 
-        function actualizarMatricesYRotacion() {
-            const angZ1 = parseFloat(sliderZ1.value);
-            const angX = parseFloat(sliderX.value);
-            const angZ2 = parseFloat(sliderZ2.value);
+        function sincronizarYActualizar(event) {
+            if (event) {
+                const origen = event.target;
+                let valor = origen.value;
+                
+                if (origen.id.startsWith('slider')) {
+                    document.getElementById(origen.id.replace('slider', 'input')).value = valor;
+                } else if (origen.id.startsWith('input')) {
+                    document.getElementById(origen.id.replace('input', 'slider')).value = valor;
+                }
+            }
 
-            valZ1.textContent = angZ1 + "°";
-            valX.textContent = angX + "°";
-            valZ2.textContent = angZ2 + "°";
+            const angZ1 = parseFloat(inputZ1.value) || 0;
+            const angX = parseFloat(inputX.value) || 0;
+            const angZ2 = parseFloat(inputZ2.value) || 0;
 
             const radZ1 = THREE.MathUtils.degToRad(angZ1);
             const radX = THREE.MathUtils.degToRad(angX);
@@ -198,11 +223,14 @@
             ]);
         }
 
-        sliderZ1.addEventListener('input', actualizarMatricesYRotacion);
-        sliderX.addEventListener('input', actualizarMatricesYRotacion);
-        sliderZ2.addEventListener('input', actualizarMatricesYRotacion);
+        sliderZ1.addEventListener('input', sincronizarYActualizar);
+        inputZ1.addEventListener('input', sincronizarYActualizar);
+        sliderX.addEventListener('input', sincronizarYActualizar);
+        inputX.addEventListener('input', sincronizarYActualizar);
+        sliderZ2.addEventListener('input', sincronizarYActualizar);
+        inputZ2.addEventListener('input', sincronizarYActualizar);
 
-        actualizarMatricesYRotacion();
+        sincronizarYActualizar();
 
         function animar() {
             requestAnimationFrame(animar);

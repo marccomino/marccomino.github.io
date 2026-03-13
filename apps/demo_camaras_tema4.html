@@ -2,98 +2,135 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Demo WebGL: Geometría Proyectiva y Cámaras</title>
+    <title>Visualizador de Cámaras y Geometría Proyectiva</title>
     <style>
-        body { margin: 0; overflow: hidden; display: flex; font-family: sans-serif; background-color: #222; color: #fff;}
-        #panel { width: 320px; background: #333; padding: 20px; height: 100vh; overflow-y: auto; box-sizing: border-box; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; }
-        #canvas-container { flex: 1; position: relative; }
-        h3 { font-size: 14px; border-bottom: 1px solid #555; padding-bottom: 5px; color: #4da6ff; margin-top: 20px; }
-        h3:first-child { margin-top: 0; }
-        .input-group { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        .input-group label { font-size: 12px; font-weight: bold; width: 100px; }
-        .input-group input, .input-group select { width: 60px; background: #444; color: #fff; border: 1px solid #555; padding: 4px; border-radius: 3px; }
-        .input-group select { width: 100%; margin-left: 10px; }
-        .matrix-display { background: #111; padding: 10px; font-family: monospace; font-size: 16px; line-height: 1.4; white-space: pre; border: 1px solid #444; border-radius: 4px; color: #aaffaa; overflow-x: auto;}
+        body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; overflow: hidden; }
+        #panel-izquierdo { width: 350px; padding: 20px; background-color: #2a2a2a; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; overflow-y: auto; box-sizing: border-box; }
+        #panel-derecho { flex-grow: 1; display: block; position: relative; }
+        
+        /* Tipografía y encabezados */
+        h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #555; padding-bottom: 10px; color: #fff; }
+        h3 { font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4da6ff; margin-top: 25px; margin-bottom: 15px; font-weight: bold; }
+        
+        /* Adaptación de los controles de la Demo Cámaras al estilo Euler */
+        .control-grupo { margin-bottom: 15px; }
+        .input-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .input-row label { font-size: 12px; font-weight: bold; color: #ccc; flex: 1; }
+        .input-row .inputs { display: flex; gap: 5px; flex: 2; justify-content: flex-end; }
+        
+        /* Inputs oscuros y limpios */
+        input[type="number"], select { width: 60px; background: #111; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; font-family: Arial, sans-serif; font-size: 12px; text-align: center; }
+        select { width: 100%; text-align: left; cursor: pointer; }
+        input[type="number"]:focus, select:focus { outline: none; border-color: #4da6ff; }
+
+        /* Contenedores de matrices estilo Euler */
+        .matriz-contenedor { margin-top: 10px; background-color: #111; padding: 10px; border-radius: 5px; border: 1px solid #333; overflow-x: auto;}
+        .titulo-matriz { color: #888; font-size: 12px; margin-bottom: 8px; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 1px;}
+        .matrix-display { color: #aaffaa; font-family: 'Courier New', monospace; font-size: 14px; white-space: pre; line-height: 1.4; text-align: left; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <div id="panel">
+    <div id="panel-izquierdo">
+        <h2>Controles de Cámara</h2>
+
         <h3>Vectores de Vista</h3>
-        <div class="input-group">
-            <label>COP (x, y, z)</label>
-            <input type="number" id="copX" value="0" step="0.5">
-            <input type="number" id="copY" value="0" step="0.5">
-            <input type="number" id="copZ" value="10" step="0.5">
-        </div>
-        <div class="input-group">
-            <label>lookAt (x, y, z)</label>
-            <input type="number" id="lookX" value="0" step="0.5">
-            <input type="number" id="lookY" value="0" step="0.5">
-            <input type="number" id="lookZ" value="-1" step="0.5">
-        </div>
-        <div class="input-group">
-            <label>VUP (x, y, z)</label>
-            <input type="number" id="upX" value="0" step="0.1">
-            <input type="number" id="upY" value="1" step="0.1">
-            <input type="number" id="upZ" value="0" step="0.1">
+        <div class="control-grupo">
+            <div class="input-row">
+                <label>COP (x, y, z)</label>
+                <div class="inputs">
+                    <input type="number" id="copX" value="0" step="0.5">
+                    <input type="number" id="copY" value="0" step="0.5">
+                    <input type="number" id="copZ" value="10" step="0.5">
+                </div>
+            </div>
+            <div class="input-row">
+                <label>lookAt (x, y, z)</label>
+                <div class="inputs">
+                    <input type="number" id="lookX" value="0" step="0.5">
+                    <input type="number" id="lookY" value="0" step="0.5">
+                    <input type="number" id="lookZ" value="-1" step="0.5">
+                </div>
+            </div>
+            <div class="input-row">
+                <label>VUP (x, y, z)</label>
+                <div class="inputs">
+                    <input type="number" id="upX" value="0" step="0.1">
+                    <input type="number" id="upY" value="1" step="0.1">
+                    <input type="number" id="upZ" value="0" step="0.1">
+                </div>
+            </div>
         </div>
 
         <h3>Tipo de Cámara</h3>
-        <div class="input-group">
-            <select id="camType">
-                <option value="persp">Perspectiva</option>
-                <option value="ortho">Ortográfica</option>
-            </select>
+        <div class="control-grupo">
+            <div class="input-row">
+                <select id="camType">
+                    <option value="persp">Perspectiva</option>
+                    <option value="ortho">Ortográfica</option>
+                </select>
+            </div>
         </div>
 
         <h3>Volumen de Visión</h3>
-        <div id="persp-params">
-            <div class="input-group">
+        <div class="control-grupo" id="persp-params">
+            <div class="input-row">
                 <label>FOV (grados)</label>
-                <input type="number" id="fov" value="45" step="1">
+                <div class="inputs"><input type="number" id="fov" value="45" step="1" style="width:100%;"></div>
             </div>
-            <div class="input-group">
+            <div class="input-row">
                 <label>Aspect (Ra)</label>
-                <input type="number" id="aspect" value="1" step="0.1">
+                <div class="inputs"><input type="number" id="aspect" value="1" step="0.1" style="width:100%;"></div>
             </div>
         </div>
 
-        <div id="ortho-params" style="display: none;">
-            <div class="input-group">
+        <div class="control-grupo" id="ortho-params" style="display: none;">
+            <div class="input-row">
                 <label>Left / Right</label>
-                <input type="number" id="left" value="-4" step="0.5">
-                <input type="number" id="right" value="4" step="0.5">
+                <div class="inputs">
+                    <input type="number" id="left" value="-4" step="0.5">
+                    <input type="number" id="right" value="4" step="0.5">
+                </div>
             </div>
-            <div class="input-group">
+            <div class="input-row">
                 <label>Bottom / Top</label>
-                <input type="number" id="bottom" value="-4" step="0.5">
-                <input type="number" id="top" value="4" step="0.5">
+                <div class="inputs">
+                    <input type="number" id="bottom" value="-4" step="0.5">
+                    <input type="number" id="top" value="4" step="0.5">
+                </div>
             </div>
         </div>
 
-        <div class="input-group">
-            <label>Z near</label>
-            <input type="number" id="near" value="1" step="0.5">
-        </div>
-        <div class="input-group">
-            <label>Z far</label>
-            <input type="number" id="far" value="15" step="1">
+        <div class="control-grupo">
+            <div class="input-row">
+                <label>Z near</label>
+                <div class="inputs"><input type="number" id="near" value="1" step="0.5" style="width:100%;"></div>
+            </div>
+            <div class="input-row">
+                <label>Z far</label>
+                <div class="inputs"><input type="number" id="far" value="15" step="1" style="width:100%;"></div>
+            </div>
         </div>
 
-        <h3>Matriz de Vista (View)</h3>
-        <div id="viewMatrix" class="matrix-display"></div>
-
-        <h3>Matriz de Proyección</h3>
-        <div id="projMatrix" class="matrix-display"></div>
+        <h3>Matrices Resultantes</h3>
+        <div class="control-grupo">
+            <div class="matriz-contenedor">
+                <div class="titulo-matriz">Matriz de Vista (View)</div>
+                <div id="viewMatrix" class="matrix-display"></div>
+            </div>
+            <div class="matriz-contenedor">
+                <div class="titulo-matriz">Matriz de Proyección</div>
+                <div id="projMatrix" class="matrix-display"></div>
+            </div>
+        </div>
     </div>
 
-    <div id="canvas-container"></div>
+    <div id="panel-derecho"></div>
 
     <script>
-        const container = document.getElementById('canvas-container');
+        const container = document.getElementById('panel-derecho');
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);

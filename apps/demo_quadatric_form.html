@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualizador de Forma Cuadrática con Autovectores</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; overflow: hidden; }
+        #panel-izquierdo { width: 350px; padding: 20px; background-color: #2a2a2a; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; overflow-y: auto; box-sizing: border-box; }
+        #panel-derecho { flex-grow: 1; display: block; position: relative; }
+        
+        h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #555; padding-bottom: 10px; color: #fff; }
+        h3 { font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4da6ff; margin-top: 25px; margin-bottom: 15px; font-weight: bold; }
+        
+        .control-grupo { margin-bottom: 15px; }
+        .input-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .input-row .inputs { display: flex; gap: 10px; justify-content: center; width: 100%; }
+        
+        input[type="number"] { width: 70px; background: #111; color: #fff; border: 1px solid #444; padding: 8px; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px; text-align: center; }
+        input[type="number"]:focus { outline: none; border-color: #4da6ff; }
+        input[type="number"]:disabled { background-color: #222; color: #777; border-color: #333; cursor: not-allowed; }
+
+        .matriz-contenedor { margin-top: 10px; background-color: #111; padding: 15px; border-radius: 5px; border: 1px solid #333; overflow-x: auto;}
+        .titulo-matriz { color: #888; font-size: 12px; margin-bottom: 12px; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 1px;}
+        .matrix-display { color: #aaffaa; font-family: 'Courier New', monospace; font-size: 15px; white-space: pre-wrap; line-height: 1.4; text-align: center; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="panel-izquierdo">
+        <h2>Forma Cuadrática</h2>
+
+        <h3>Matriz Simétrica 2x2</h3>
+        <div class="control-grupo">
+            <div class="input-row">
+                <div class="inputs">
+                    <input type="number" id="m11" value="2" step="0.5">
+                    <input type="number" id="m12" value="-1" step="0.5">
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="inputs">
+                    <input type="number" id="m21" value="-1" disabled>
+                    <input type="number" id="m22" value="2" step="0.5">
+                </div>
+            </div>
+        </div>
+
+        <h3>Ecuación Resultante</h3>
+        <div class="control-grupo">
+            <div class="matriz-contenedor">
+                <div class="titulo-matriz">Función f(x, z)</div>
+                <div id="ecuacionDisplay" class="matrix-display"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-derecho"></div>
+
+    <script>
+        const container = document.getElementById('panel-derecho');
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const gridHelper = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
+        scene.add(gridHelper);
+        const axesHelper = new THREE.AxesHelper(3);
+        scene.add(axesHelper);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(6, 5, 6);
+        camera.lookAt(0, 0, 0);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        let surfaceMesh, baseCircle, projectedCircle;
+        let flechaAuto1, flechaAuto2, flechaVert1, flechaVert2;
+
+        function evaluarCuadratica(x, z, a, b, c) {
+            return a * x * x + 2 * b * x * z + c * z * z;
+        }
+
+        function formatearEcuacion(a, b, c) {
+            const signoB = b >= 0 ? '+' : '-';
+            const signoC = c >= 0 ? '+' : '-';
+            const valB = Math.abs(2 * b).toFixed(2);
+            const valC = Math.abs(c).toFixed(2);
+            return `${a.toFixed(2)}x² ${signoB} ${valB}xz ${signoC} ${valC}z²`;
+        }
+
+        function actualizarGeometria() {
+            const a = parseFloat(document.getElementById('m11').value);
+            const b = parseFloat(document.getElementById('m12').value);
+            const c = parseFloat(document.getElementById('m22').value);
+
+            document.getElementById('m21').value = b;
+            document.getElementById('ecuacionDisplay').textContent = formatearEcuacion(a, b, c);
+
+            if (surfaceMesh) scene.remove(surfaceMesh);
+            const surfaceGeo = new THREE.PlaneGeometry(6, 6, 80, 80);
+            surfaceGeo.rotateX(-Math.PI / 2);
+            const pos = surfaceGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                const y = evaluarCuadratica(x, z, a, b, c);
+                pos.setY(i, y);
+            }
+            surfaceGeo.computeVertexNormals();
+            const surfaceMat = new THREE.MeshStandardMaterial({ 
+                color: 0x4da6ff, 
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 0.6,
+                wireframe: false
+            });
+            surfaceMesh = new THREE.Mesh(surfaceGeo, surfaceMat);
+            scene.add(surfaceMesh);
+
+            if (baseCircle) scene.remove(baseCircle);
+            if (projectedCircle) scene.remove(projectedCircle);
+            
+            const circlePts = [];
+            const projPts = [];
+            const segmentos = 120;
+            
+            for (let i = 0; i <= segmentos; i++) {
+                const theta = (i / segmentos) * Math.PI * 2;
+                const x = Math.cos(theta);
+                const z = Math.sin(theta);
+                
+                circlePts.push(new THREE.Vector3(x, 0, z));
+                projPts.push(new THREE.Vector3(x, evaluarCuadratica(x, z, a, b, c), z));
+            }
+
+            const baseGeo = new THREE.BufferGeometry().setFromPoints(circlePts);
+            const baseMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+            baseCircle = new THREE.Line(baseGeo, baseMat);
+            scene.add(baseCircle);
+
+            const projGeo = new THREE.BufferGeometry().setFromPoints(projPts);
+            const projMat = new THREE.LineBasicMaterial({ color: 0xff4da6, linewidth: 3 });
+            projectedCircle = new THREE.Line(projGeo, projMat);
+            scene.add(projectedCircle);
+
+            if (flechaAuto1) scene.remove(flechaAuto1);
+            if (flechaAuto2) scene.remove(flechaAuto2);
+            if (flechaVert1) scene.remove(flechaVert1);
+            if (flechaVert2) scene.remove(flechaVert2);
+
+            const traza = a + c;
+            const discriminante = Math.sqrt(Math.pow(a - c, 2) + 4 * b * b);
+            const lambda1 = (traza + discriminante) / 2;
+            const lambda2 = (traza - discriminante) / 2;
+
+            let v1x, v1z, v2x, v2z;
+            if (b === 0) {
+                v1x = 1; v1z = 0;
+                v2x = 0; v2z = 1;
+            } else {
+                v1x = b; v1z = lambda1 - a;
+                const norm1 = Math.sqrt(v1x*v1x + v1z*v1z);
+                v1x /= norm1; v1z /= norm1;
+
+                v2x = b; v2z = lambda2 - a;
+                const norm2 = Math.sqrt(v2x*v2x + v2z*v2z);
+                v2x /= norm2; v2z /= norm2;
+            }
+
+            const origen = new THREE.Vector3(0, 0, 0);
+            const dir1 = new THREE.Vector3(v1x, 0, v1z).normalize();
+            const dir2 = new THREE.Vector3(v2x, 0, v2z).normalize();
+
+            flechaAuto1 = new THREE.ArrowHelper(dir1, origen, 1, 0xffff00, 0.2, 0.1);
+            flechaAuto2 = new THREE.ArrowHelper(dir2, origen, 1, 0x00ff00, 0.2, 0.1);
+            scene.add(flechaAuto1);
+            scene.add(flechaAuto2);
+
+            const origenV1 = new THREE.Vector3(v1x, 0, v1z);
+            const direccionV1 = new THREE.Vector3(0, lambda1 >= 0 ? 1 : -1, 0);
+            const longitud1 = Math.abs(lambda1) || 0.001; 
+            flechaVert1 = new THREE.ArrowHelper(direccionV1, origenV1, longitud1, 0xffff00, 0.2, 0.1);
+
+            const origenV2 = new THREE.Vector3(v2x, 0, v2z);
+            const direccionV2 = new THREE.Vector3(0, lambda2 >= 0 ? 1 : -1, 0);
+            const longitud2 = Math.abs(lambda2) || 0.001;
+            flechaVert2 = new THREE.ArrowHelper(direccionV2, origenV2, longitud2, 0x00ff00, 0.2, 0.1);
+
+            scene.add(flechaVert1);
+            scene.add(flechaVert2);
+        }
+
+        const inputs = ['m11', 'm12', 'm22'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', actualizarGeometria);
+        });
+
+        actualizarGeometria();
+
+        function render() {
+            requestAnimationFrame(render);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        render();
+    </script>
+</body>
+</html>
