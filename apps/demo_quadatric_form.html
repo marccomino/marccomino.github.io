@@ -147,12 +147,12 @@
             }
 
             const baseGeo = new THREE.BufferGeometry().setFromPoints(circlePts);
-            const baseMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+            const baseMat = new THREE.LineBasicMaterial({ color: 0xff2222, linewidth: 5 });
             baseCircle = new THREE.Line(baseGeo, baseMat);
             scene.add(baseCircle);
 
             const projGeo = new THREE.BufferGeometry().setFromPoints(projPts);
-            const projMat = new THREE.LineBasicMaterial({ color: 0xff4da6, linewidth: 3 });
+            const projMat = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 5 });
             projectedCircle = new THREE.Line(projGeo, projMat);
             scene.add(projectedCircle);
 
@@ -184,20 +184,20 @@
             const dir1 = new THREE.Vector3(v1x, 0, v1z).normalize();
             const dir2 = new THREE.Vector3(v2x, 0, v2z).normalize();
 
-            flechaAuto1 = new THREE.ArrowHelper(dir1, origen, 1, 0xffff00, 0.2, 0.1);
-            flechaAuto2 = new THREE.ArrowHelper(dir2, origen, 1, 0x00ff00, 0.2, 0.1);
+            flechaAuto1 = new THREE.ArrowHelper(dir1, origen, 1, 0x00aa00, 0.2, 0.1);
+            flechaAuto2 = new THREE.ArrowHelper(dir2, origen, 1, 0xaaff00, 0.2, 0.1);
             scene.add(flechaAuto1);
             scene.add(flechaAuto2);
 
             const origenV1 = new THREE.Vector3(v1x, 0, v1z);
             const direccionV1 = new THREE.Vector3(0, lambda1 >= 0 ? 1 : -1, 0);
             const longitud1 = Math.abs(lambda1) || 0.001; 
-            flechaVert1 = new THREE.ArrowHelper(direccionV1, origenV1, longitud1, 0xffff00, 0.2, 0.1);
+            flechaVert1 = new THREE.ArrowHelper(direccionV1, origenV1, longitud1, 0x00aa00, 0.2, 0.1);
 
             const origenV2 = new THREE.Vector3(v2x, 0, v2z);
             const direccionV2 = new THREE.Vector3(0, lambda2 >= 0 ? 1 : -1, 0);
             const longitud2 = Math.abs(lambda2) || 0.001;
-            flechaVert2 = new THREE.ArrowHelper(direccionV2, origenV2, longitud2, 0x00ff00, 0.2, 0.1);
+            flechaVert2 = new THREE.ArrowHelper(direccionV2, origenV2, longitud2, 0xaaff00, 0.2, 0.1);
 
             scene.add(flechaVert1);
             scene.add(flechaVert2);

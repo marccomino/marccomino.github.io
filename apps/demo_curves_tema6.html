@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualizador de Curvas</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; overflow: hidden; }
+        #panel-izquierdo { width: 350px; padding: 20px; background-color: #2a2a2a; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; overflow-y: auto; box-sizing: border-box; }
+        #panel-derecho { flex-grow: 1; display: block; position: relative; }
+        
+        h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #555; padding-bottom: 10px; color: #fff; }
+        h3 { font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4da6ff; margin-top: 25px; margin-bottom: 15px; font-weight: bold; }
+        
+        .control-grupo { margin-bottom: 15px; }
+        .input-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .input-row label { font-size: 12px; font-weight: bold; color: #ccc; flex: 1; }
+        .input-row .inputs { display: flex; gap: 5px; flex: 2; justify-content: flex-end; }
+        
+        input[type="number"], select { width: 60px; background: #111; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; font-family: Arial, sans-serif; font-size: 12px; text-align: center; }
+        select { width: 100%; text-align: left; cursor: pointer; }
+        input[type="number"]:focus, select:focus { outline: none; border-color: #4da6ff; }
+
+        .punto-contenedor { background-color: #111; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-bottom: 10px; }
+        .punto-titulo { color: #888; font-size: 12px; margin-bottom: 8px; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 1px; color: #4da6ff; font-weight: bold;}
+        .xyz-col { display: flex; align-items: center; gap: 5px; }
+        .xyz-col span { color: #888; font-size: 10px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="panel-izquierdo">
+        <h2>Modelado de Curvas</h2>
+        
+        <h3>Estrategia de Modelado</h3>
+        <div class="control-grupo">
+            <div class="input-row">
+                <select id="strategySelector">
+                    <option value="lagrange">Polinomio de Lagrange</option>
+                    <option value="bezier6">Bezier Generalizado (Grado 6)</option>
+                    <option value="bezier3">Bezier Cúbico (Dos Parches)</option>
+                    <option value="catmull">Hermite-Catmull Rom</option>
+                    <option value="spline">Splines Cúbicos Naturales</option>
+                </select>
+            </div>
+        </div>
+
+        <h3>Puntos de Control</h3>
+        <div class="control-grupo" id="points-container"></div>
+        <div id="opciones-contextuales" class="control-grupo" style="display: none; padding: 10px; background: #222; border-radius: 5px; border: 1px solid #444;">
+            <div id="c1-container" style="display: none; margin-bottom: 10px;">
+                <button id="btn-c1" style="width: 100%; padding: 8px; background: #4da6ff; color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Forzar Continuidad C1 (P4)</button>
+            </div>
+            <div id="poligono-container" style="display: none; margin-bottom: 10px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                    <input type="checkbox" id="chk-poligono"> Mostrar Polígono de Control
+                </label>
+            </div>
+            <div id="tangentes-container" style="display: none;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                    <input type="checkbox" id="chk-tangentes"> Mostrar Tangentes
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-derecho"></div>
+
+    <script>
+        let controlPoints = [
+            new THREE.Vector3(-3, -2, 0),
+            new THREE.Vector3(-2, 2, 1),
+            new THREE.Vector3(-1, -1, 0),
+            new THREE.Vector3(0, 1, -1),
+            new THREE.Vector3(1, -2, 0),
+            new THREE.Vector3(2, 2, 1),
+            new THREE.Vector3(3, 0, 0)
+        ];
+
+        let scene, camera, renderer, curveLine, pointsGroup;
+        const resolution = 100;
+
+function updateUIContextual() {
+            const strategy = document.getElementById('strategySelector').value;
+            const panel = document.getElementById('opciones-contextuales');
+            const c1Cont = document.getElementById('c1-container');
+            const polCont = document.getElementById('poligono-container');
+            const tanCont = document.getElementById('tangentes-container');
+            
+            panel.style.display = 'block';
+            c1Cont.style.display = 'none';
+            polCont.style.display = 'none';
+            tanCont.style.display = 'none';
+            
+            if (strategy === 'bezier3') {
+                c1Cont.style.display = 'block';
+                polCont.style.display = 'block';
+            } else if (strategy === 'bezier6') {
+                polCont.style.display = 'block';
+            } else if (strategy === 'catmull') {
+                tanCont.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function initUI() {
+            const container = document.getElementById('points-container');
+            container.innerHTML = '';
+            
+            controlPoints.forEach((p, i) => {
+                const card = document.createElement('div');
+                card.className = 'punto-contenedor';
+                card.innerHTML = `
+                    <div class="punto-titulo">Punto ${i}</div>
+                    <div class="input-row">
+                        <div class="xyz-col"><span>X</span><input type="number" step="0.5" value="${p.x}" id="p${i}x"></div>
+                        <div class="xyz-col"><span>Y</span><input type="number" step="0.5" value="${p.y}" id="p${i}y"></div>
+                        <div class="xyz-col"><span>Z</span><input type="number" step="0.5" value="${p.z}" id="p${i}z"></div>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                ['x', 'y', 'z'].forEach(axis => {
+                    document.getElementById(`p${i}${axis}`).addEventListener('input', (e) => {
+                        controlPoints[i][axis] = parseFloat(e.target.value) || 0;
+                        updateScene();
+                    });
+                });
+            });
+
+            document.getElementById('strategySelector').addEventListener('change', () => {
+                updateUIContextual();
+                updateScene();
+            });
+
+            document.getElementById('btn-c1').addEventListener('click', () => {
+                let p2 = controlPoints[2];
+                let p3 = controlPoints[3];
+                // Aplicamos P4 = P3 + (P3 - P2) para alinear las tangentes
+                controlPoints[4].x = p3.x + (p3.x - p2.x);
+                controlPoints[4].y = p3.y + (p3.y - p2.y);
+                controlPoints[4].z = p3.z + (p3.z - p2.z);
+                
+                // Actualizamos las cajas de texto en la interfaz
+                document.getElementById('p4x').value = controlPoints[4].x;
+                document.getElementById('p4y').value = controlPoints[4].y;
+                document.getElementById('p4z').value = controlPoints[4].z;
+                
+                updateScene();
+            });
+
+            document.getElementById('chk-poligono').addEventListener('change', updateScene);
+            document.getElementById('chk-tangentes').addEventListener('change', updateScene);
+            
+            updateUIContextual();
+        }
+
+        function initWebGL() {
+            const container = document.getElementById('panel-derecho');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
+            
+            const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+            scene.add(gridHelper);
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 5, 12);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            pointsGroup = new THREE.Group();
+            scene.add(pointsGroup);
+
+            const animate = function () {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            };
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+
+            animate();
+        }
+
+        // ==========================================
+        // FUNCIONES MATEMÁTICAS GLOBALES
+        // ==========================================
+
+        // Generates a specific basis polynomial L_i(t)
+        // Esta función actúa como una fábrica matemática. Para un punto de control específico 'i',
+        // devuelve una nueva función que evalúa el polinomio base de Lagrange L_i en un parámetro 't'.
+        // La propiedad fundamental que demostramos aquí es que L_i(t_i) = 1, y L_i(t_j) = 0 para todo i diferente de j.
+        function createLagrangeBasis(i, n) {
+            return function(t) {
+                let L_i = 1;
+                // Calculamos el valor del parámetro t_i asumiendo una distribución uniforme de los nodos entre 0 y 1.
+                let t_i = i / (n - 1);
+                for (let j = 0; j < n; j++) {
+                    if (i !== j) {
+                        let t_j = j / (n - 1);
+                        // Multiplicatoria que forma el polinomio: productorio de (t - t_j) / (t_i - t_j)
+                        L_i *= (t - t_j) / (t_i - t_j);
+                    }
+                }
+                return L_i;
+            };
+        }
+
+        // Compute the full Lagrange polynomial function
+        // Esta función representa la curva paramétrica final P(t) en el espacio tridimensional.
+        // Para un valor 't' dado, evalúa cada polinomio base y lo multiplica por
+        // las coordenadas (X, Y, Z) de su punto de control correspondiente (P_i).
+        // La suma de todos estos productos da como resultado la interpolación exacta.
+        function evaluateLagrangeCurve(basisPolynomials, pts, t, n) {
+            let pt = new THREE.Vector3(0, 0, 0);
+            for (let i = 0; i < n; i++) {
+                let L_i_val = basisPolynomials[i](t);
+                pt.x += pts[i].x * L_i_val;
+                pt.y += pts[i].y * L_i_val;
+                pt.z += pts[i].z * L_i_val;
+            }
+            return pt;
+        }
+
+        // Funciones de soporte para Polinomios de Bernstein (Bezier Generalizado)
+        function factorial(k) { return k <= 1 ? 1 : k * factorial(k - 1); }
+        function binomial(n, k) { return factorial(n) / (factorial(k) * factorial(n - k)); }
+
+        // Generates a Bernstein basis polynomial B_i^n(t)
+        // Genera el polinomio de Bernstein específico para el índice 'i' y un 'grado' dado.
+        // Estos polinomios garantizan que la curva esté siempre contenida dentro de la envoltura convexa de los puntos.
+        function createBernsteinBasis(i, degree) {
+            return function(t) {
+                return binomial(degree, i) * Math.pow(1 - t, degree - i) * Math.pow(t, i);
+            };
+        }
+
+        // Compute the full Generalized Bezier curve
+        function evaluateBezierCurve(basisPolynomials, pts, t, degree) {
+            let pt = new THREE.Vector3(0, 0, 0);
+            for (let i = 0; i <= degree; i++) {
+                let B_i_val = basisPolynomials[i](t);
+                pt.x += pts[i].x * B_i_val;
+                pt.y += pts[i].y * B_i_val;
+                pt.z += pts[i].z * B_i_val;
+            }
+            return pt;
+        }
+
+        // Generates fixed Cubic Bernstein basis polynomials
+        // Para curvas de Bezier Cúbicas (grado 3), los polinomios son fijos y conocidos.
+        // Optimizamos devolviendo directamente las cuatro funciones analíticas expandidas.
+        function createCubicBernsteinBasis() {
+            return [
+                function(t) { let invT = 1 - t; return invT * invT * invT; },
+                function(t) { let invT = 1 - t; return 3 * t * invT * invT; },
+                function(t) { let invT = 1 - t; return 3 * t * t * invT; },
+                function(t) { return t * t * t; }
+            ];
+        }
+
+        // Evaluates a single Cubic Bezier patch
+        function evaluateCubicBezierPatch(basisPolynomials, p0, p1, p2, p3, t) {
+            let b0 = basisPolynomials[0](t), b1 = basisPolynomials[1](t);
+            let b2 = basisPolynomials[2](t), b3 = basisPolynomials[3](t);
+            return new THREE.Vector3(
+                b0*p0.x + b1*p1.x + b2*p2.x + b3*p3.x,
+                b0*p0.y + b1*p1.y + b2*p2.y + b3*p3.y,
+                b0*p0.z + b1*p1.z + b2*p2.z + b3*p3.z
+            );
+        }
+
+        // Generates Hermite-Catmull Rom blending functions
+        // A diferencia de Bezier, Catmull-Rom asegura la interpolación de los puntos interiores
+        // manteniendo una continuidad C1 gracias a estas funciones de mezcla específicas derivadas de la matriz de Hermite.
+        function createCatmullRomBasis() {
+            return [
+                function(t) { let t2 = t*t, t3 = t2*t; return -0.5*t3 + t2 - 0.5*t; },
+                function(t) { let t2 = t*t, t3 = t2*t; return 1.5*t3 - 2.5*t2 + 1.0; },
+                function(t) { let t2 = t*t, t3 = t2*t; return -1.5*t3 + 2.0*t2 + 0.5*t; },
+                function(t) { let t2 = t*t, t3 = t2*t; return 0.5*t3 - 0.5*t2; }
+            ];
+        }
+
+        // Evaluates a Catmull-Rom segment
+        function evaluateCatmullRomSegment(basisFunctions, p0, p1, p2, p3, t) {
+            let f1 = basisFunctions[0](t), f2 = basisFunctions[1](t);
+            let f3 = basisFunctions[2](t), f4 = basisFunctions[3](t);
+            return new THREE.Vector3(
+                p0.x*f1 + p1.x*f2 + p2.x*f3 + p3.x*f4,
+                p0.y*f1 + p1.y*f2 + p2.y*f3 + p3.y*f4,
+                p0.z*f1 + p1.z*f2 + p2.z*f3 + p3.z*f4
+            );
+        }
+
+        // Solves the tridiagonal matrix for Natural Cubic Splines
+        // Los splines requieren un enfoque global. Resolvemos un sistema de ecuaciones mediante el algoritmo de Thomas
+        // para encontrar las segundas derivadas (momentos) en cada punto de control, imponiendo derivadas cero en los extremos (condición Natural).
+        function solveNaturalCubicSplines(pts, n) {
+            let a = [], b = [], c = [], dX = [], dY = [], dZ = [];
+            for (let i = 0; i < n; i++) {
+                if (i === 0 || i === n - 1) {
+                    b.push(1); a.push(0); c.push(0); 
+                    dX.push(0); dY.push(0); dZ.push(0);
+                } else {
+                    a.push(1); b.push(4); c.push(1);
+                    dX.push(6 * (pts[i-1].x - 2*pts[i].x + pts[i+1].x));
+                    dY.push(6 * (pts[i-1].y - 2*pts[i].y + pts[i+1].y));
+                    dZ.push(6 * (pts[i-1].z - 2*pts[i].z + pts[i+1].z));
+                }
+            }
+
+            for (let i = 1; i < n; i++) {
+                let m = a[i] / b[i - 1];
+                b[i] -= m * c[i - 1];
+                dX[i] -= m * dX[i - 1]; dY[i] -= m * dY[i - 1]; dZ[i] -= m * dZ[i - 1];
+            }
+
+            let mX = new Array(n), mY = new Array(n), mZ = new Array(n);
+            mX[n-1] = dX[n-1] / b[n-1]; mY[n-1] = dY[n-1] / b[n-1]; mZ[n-1] = dZ[n-1] / b[n-1];
+            for (let i = n - 2; i >= 0; i--) {
+                mX[i] = (dX[i] - c[i] * mX[i + 1]) / b[i];
+                mY[i] = (dY[i] - c[i] * mY[i + 1]) / b[i];
+                mZ[i] = (dZ[i] - c[i] * mZ[i + 1]) / b[i];
+            }
+            
+            let moments = [];
+            for(let i = 0; i < n; i++) {
+                moments.push({x: mX[i], y: mY[i], z: mZ[i]});
+            }
+            return moments;
+        }
+
+        // Evaluates a single segment of the calculated Spline
+        // Evalúa el polinomio cúbico entre dos nodos utilizando los puntos de control y las segundas derivadas precalculadas.
+        function evaluateSplineSegment(p_i, p_next, m_i, m_next, t) {
+            let pt = new THREE.Vector3();
+            ['x', 'y', 'z'].forEach(axis => {
+                let m1 = m_i[axis], m2 = m_next[axis];
+                let val = m1/6 * Math.pow(1-t, 3) + m2/6 * Math.pow(t, 3) + 
+                          (p_i[axis] - m1/6) * (1-t) + 
+                          (p_next[axis] - m2/6) * t;
+                pt[axis] = val;
+            });
+            return pt;
+        }
+
+        // ==========================================
+        // FUNCIÓN PRINCIPAL DE ENRUTAMIENTO
+        // ==========================================
+
+        function computeCurve() {
+            const strategy = document.getElementById('strategySelector').value;
+            const pts = controlPoints;
+            const n = pts.length;
+            const vertices = [];
+
+            if (strategy === 'lagrange') {
+                let basisPolynomials = [];
+                for (let i = 0; i < n; i++) {
+                    basisPolynomials.push(createLagrangeBasis(i, n));
+                }
+                for (let step = 0; step <= resolution; step++) {
+                    let t = step / resolution;
+                    vertices.push(evaluateLagrangeCurve(basisPolynomials, pts, t, n));
+                }
+            } 
+            else if (strategy === 'bezier6') {
+                let degree = n - 1;
+                let basisPolynomials = [];
+                for (let i = 0; i <= degree; i++) {
+                    basisPolynomials.push(createBernsteinBasis(i, degree));
+                }
+                for (let step = 0; step <= resolution; step++) {
+                    let t = step / resolution;
+                    vertices.push(evaluateBezierCurve(basisPolynomials, pts, t, degree));
+                }
+            } 
+            else if (strategy === 'bezier3') {
+                let basisPolynomials = createCubicBernsteinBasis();
+                for (let patch = 0; patch < 2; patch++) {
+                    let offset = patch * 3;
+                    for (let step = 0; step <= resolution / 2; step++) {
+                        let t = step / (resolution / 2);
+                        let p0 = pts[offset], p1 = pts[offset + 1], p2 = pts[offset + 2], p3 = pts[offset + 3];
+                        vertices.push(evaluateCubicBezierPatch(basisPolynomials, p0, p1, p2, p3, t));
+                    }
+                }
+            }
+            else if (strategy === 'catmull') {
+                let basisFunctions = createCatmullRomBasis();
+                for (let i = 0; i < n - 1; i++) {
+                    let p0 = i === 0 ? pts[0] : pts[i - 1];
+                    let p1 = pts[i];
+                    let p2 = pts[i + 1];
+                    let p3 = i === n - 2 ? pts[i + 1] : pts[i + 2];
+
+                    for (let step = 0; step <= resolution / (n - 1); step++) {
+                        let t = step / (resolution / (n - 1));
+                        vertices.push(evaluateCatmullRomSegment(basisFunctions, p0, p1, p2, p3, t));
+                    }
+                }
+            }
+            else if (strategy === 'spline') {
+                let moments = solveNaturalCubicSplines(pts, n);
+                for (let i = 0; i < n - 1; i++) {
+                    for (let step = 0; step <= resolution / (n - 1); step++) {
+                        let t = step / (resolution / (n - 1));
+                        vertices.push(evaluateSplineSegment(pts[i], pts[i+1], moments[i], moments[i+1], t));
+                    }
+                }
+            }
+            
+            return vertices;
+        }
+
+        function updateScene() {
+            pointsGroup.clear();
+            const sphereGeo = new THREE.SphereGeometry(0.15, 16, 16);
+            const sphereMatOrange = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const sphereMatRed = new THREE.MeshBasicMaterial({ color: 0xff5555 });
+
+            const strategy = document.getElementById('strategySelector').value;
+
+            controlPoints.forEach((p, index) => {
+                let isControPoint = false;
+                if (strategy === 'bezier6') {
+                    isControPoint = !(index === 0 || index === controlPoints.length - 1);
+                } else if (strategy === 'bezier3') {
+                    isControPoint = !(index === 0 || index == ((controlPoints.length) - 1) / 2 || index === controlPoints.length - 1);
+                }
+                const sphere = new THREE.Mesh(sphereGeo, isControPoint ? sphereMatRed : sphereMatOrange);
+                sphere.position.copy(p);
+                pointsGroup.add(sphere);
+            });
+
+            if (curveLine) scene.remove(curveLine);
+            
+            const vertices = computeCurve();
+            const material = new THREE.LineBasicMaterial({ color: 0x4da6ff, linewidth: 3 });
+            const geometry = new THREE.BufferGeometry().setFromPoints(vertices);
+            
+            curveLine = new THREE.Line(geometry, material);
+            scene.add(curveLine);
+            
+            if ((strategy === 'bezier3' || strategy === 'bezier6') && document.getElementById('chk-poligono').checked) {
+                const polyMat = new THREE.LineBasicMaterial({ color: 0xff2222, transparent: true, opacity: 0.8, linewidth: 3 });
+                const polyGeo = new THREE.BufferGeometry().setFromPoints(controlPoints);
+                const polyLine = new THREE.Line(polyGeo, polyMat);
+                pointsGroup.add(polyLine);
+            }
+            
+            if (strategy === 'catmull' && document.getElementById('chk-tangentes').checked) {
+                const tanMat = new THREE.LineBasicMaterial({ color: 0xff2222, linewidth: 3 });
+                const n = controlPoints.length;
+                for (let i = 0; i < n; i++) {
+                    let p0 = i === 0 ? controlPoints[0] : controlPoints[i - 1];
+                    let p2 = i === n - 1 ? controlPoints[n - 1] : controlPoints[i + 1];
+                    
+                    // Calculamos la dirección de la tangente usando diferencia central
+                    let tx = 0.5 * (p2.x - p0.x);
+                    let ty = 0.5 * (p2.y - p0.y);
+                    let tz = 0.5 * (p2.z - p0.z);
+                    
+                    // Ajuste didáctico para los extremos
+                    if (i === 0) {
+                        tx = 0.5 * (controlPoints[1].x - controlPoints[0].x);
+                        ty = 0.5 * (controlPoints[1].y - controlPoints[0].y);
+                        tz = 0.5 * (controlPoints[1].z - controlPoints[0].z);
+                    } else if (i === n - 1) {
+                        tx = 0.5 * (controlPoints[n-1].x - controlPoints[n-2].x);
+                        ty = 0.5 * (controlPoints[n-1].y - controlPoints[n-2].y);
+                        tz = 0.5 * (controlPoints[n-1].z - controlPoints[n-2].z);
+                    }
+
+                    let pStart = new THREE.Vector3(
+                        controlPoints[i].x - tx,
+                        controlPoints[i].y - ty,
+                        controlPoints[i].z - tz
+                    );
+                    
+                    let pEnd = new THREE.Vector3(
+                        controlPoints[i].x + tx,
+                        controlPoints[i].y + ty,
+                        controlPoints[i].z + tz
+                    );
+                    
+                    const tanGeo = new THREE.BufferGeometry().setFromPoints([pStart, pEnd]);
+                    const tanLine = new THREE.Line(tanGeo, tanMat);
+                    pointsGroup.add(tanLine);
+                }
+            }
+        }
+
+        initUI();
+        initWebGL();
+        updateScene();
+
+    </script>
+</body>
+</html>
