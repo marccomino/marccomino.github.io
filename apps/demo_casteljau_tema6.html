@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualizador de Curvas Bezier (Algoritmo de De Casteljau)</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; overflow: hidden; }
+        #panel-izquierdo { width: 350px; padding: 20px; background-color: #2a2a2a; box-shadow: 2px 0 5px rgba(0,0,0,0.5); z-index: 10; overflow-y: auto; box-sizing: border-box; }
+        #panel-derecho { flex-grow: 1; display: block; position: relative; }
+        
+        h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #555; padding-bottom: 10px; color: #fff; }
+        h3 { font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4da6ff; margin-top: 25px; margin-bottom: 15px; font-weight: bold; }
+        
+        .control-grupo { margin-bottom: 15px; }
+        .input-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .input-row label { font-size: 12px; font-weight: bold; color: #ccc; flex: 1; }
+        .input-row .inputs { display: flex; gap: 5px; flex: 2; justify-content: flex-end; }
+        
+        input[type="number"], select { width: 60px; background: #111; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; font-family: Arial, sans-serif; font-size: 12px; text-align: center; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        select { width: 100%; text-align: left; cursor: pointer; }
+        input[type="number"]:focus, select:focus { outline: none; border-color: #4da6ff; }
+
+        .punto-contenedor { background-color: #111; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-bottom: 10px; }
+        .punto-titulo { color: #888; font-size: 12px; margin-bottom: 8px; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 1px; color: #4da6ff; font-weight: bold;}
+        .xyz-col { display: flex; align-items: center; gap: 5px; }
+        .xyz-col span { color: #888; font-size: 10px; }
+        
+        #tValueDisplay { text-align: center; color: #4da6ff; font-weight: bold; font-size: 18px; margin-top: 5px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="panel-izquierdo">
+        <h2>Construcción de Bezier</h2>
+        
+        <h3>Grado de la Curva</h3>
+        <div class="control-grupo">
+            <div class="input-row">
+                <select id="strategySelector">
+                    <option value="2" selected>Bezier Lineal (2 Puntos)</option>
+                    <option value="3">Bezier Cuadrática (3 Puntos)</option>
+                    <option value="4">Bezier Cúbica (4 Puntos)</option>
+                    <option value="5">Bezier Cuártica (5 Puntos)</option>
+                </select>
+            </div>
+        </div>
+
+        <h3>Parámetro t</h3>
+        <div class="control-grupo" style="background: #222; padding: 15px; border-radius: 5px; border: 1px solid #444;">
+            <input type="range" id="tSlider" min="0" max="1" step="0.01" value="0.5">
+            <div id="tValueDisplay">t = 0.50</div>
+        </div>
+
+        <h3>Puntos de Control</h3>
+        <div class="control-grupo" id="points-container"></div>
+    </div>
+
+    <div id="panel-derecho"></div>
+
+    <script>
+        const pStartFixed = new THREE.Vector3(-4, -2, 0);
+        const pEndFixed = new THREE.Vector3(4, 2, 0);
+        let controlPoints = [];
+
+        let scene, camera, renderer, pointsGroup, linesGroup, curveLine;
+        const resolution = 100;
+
+        function generatePoints(numPoints) {
+            controlPoints = [];
+            controlPoints.push(pStartFixed.clone());
+            
+            if (numPoints > 2) {
+                controlPoints.push(new THREE.Vector3(-2.0, 2.0, 2.0));
+            }
+
+            if (numPoints > 3) {
+                controlPoints.push(new THREE.Vector3(1.0, 4.0, 0.5));
+            }
+
+            if (numPoints > 4) {
+                controlPoints.push(new THREE.Vector3(2.0, 0.0, 4.0));
+            }
+
+            if (numPoints > 1) {
+                controlPoints.push(pEndFixed.clone());
+            }
+        }
+
+        function initUI() {
+            const container = document.getElementById('points-container');
+            container.innerHTML = '';
+            
+            controlPoints.forEach((p, i) => {
+                const card = document.createElement('div');
+                card.className = 'punto-contenedor';
+                card.innerHTML = `
+                    <div class="punto-titulo">Punto ${i}</div>
+                    <div class="input-row">
+                        <div class="xyz-col"><span>X</span><input type="number" step="0.5" value="${p.x}" id="p${i}x"></div>
+                        <div class="xyz-col"><span>Y</span><input type="number" step="0.5" value="${p.y}" id="p${i}y"></div>
+                        <div class="xyz-col"><span>Z</span><input type="number" step="0.5" value="${p.z}" id="p${i}z"></div>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                ['x', 'y', 'z'].forEach(axis => {
+                    document.getElementById(`p${i}${axis}`).addEventListener('input', (e) => {
+                        controlPoints[i][axis] = parseFloat(e.target.value) || 0;
+                        updateScene();
+                    });
+                });
+            });
+        }
+
+        function bindEvents() {
+            document.getElementById('strategySelector').addEventListener('change', (e) => {
+                const numPoints = parseInt(e.target.value);
+                generatePoints(numPoints);
+                initUI();
+                updateScene();
+            });
+
+            document.getElementById('tSlider').addEventListener('input', (e) => {
+                const t = parseFloat(e.target.value);
+                document.getElementById('tValueDisplay').innerText = `t = ${t.toFixed(2)}`;
+                updateScene();
+            });
+        }
+
+        function initWebGL() {
+            const container = document.getElementById('panel-derecho');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
+            
+            const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+            scene.add(gridHelper);
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 5, 14);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            pointsGroup = new THREE.Group();
+            scene.add(pointsGroup);
+            
+            linesGroup = new THREE.Group();
+            scene.add(linesGroup);
+
+            const animate = function () {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            };
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+
+            animate();
+        }
+
+        // Algoritmo de De Casteljau
+        function computeDeCasteljau(pts, t) {
+            let levels = [pts];
+            for (let k = 1; k < pts.length; k++) {
+                let prevLevel = levels[k - 1];
+                let currentLevel = [];
+                for (let i = 0; i < prevLevel.length - 1; i++) {
+                    let p0 = prevLevel[i];
+                    let p1 = prevLevel[i + 1];
+                    let pNew = new THREE.Vector3().copy(p0).lerp(p1, t);
+                    currentLevel.push(pNew);
+                }
+                levels.push(currentLevel);
+            }
+            return levels;
+        }
+
+        function computeFullCurve(pts) {
+            let vertices = [];
+            for (let step = 0; step <= resolution; step++) {
+                let t = step / resolution;
+                let levels = computeDeCasteljau(pts, t);
+                vertices.push(levels[levels.length - 1][0]);
+            }
+            return vertices;
+        }
+
+        function updateScene() {
+            pointsGroup.clear();
+            linesGroup.clear();
+            if (curveLine) scene.remove(curveLine);
+
+            const t = parseFloat(document.getElementById('tSlider').value);
+            const levels = computeDeCasteljau(controlPoints, t);
+            
+            const curveVertices = computeFullCurve(controlPoints);
+            const curveGeom = new THREE.BufferGeometry().setFromPoints(curveVertices);
+            const curveMat = new THREE.LineBasicMaterial({ color: 0x4da6ff, linewidth: 2, transparent: true, opacity: 0.5 });
+            curveLine = new THREE.Line(curveGeom, curveMat);
+            scene.add(curveLine);
+
+            const sphereGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const sphereMatOrange = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const sphereMatRed = new THREE.MeshBasicMaterial({ color: 0xff5555 });
+
+            // Dibujar puntos y líneas de cada nivel de interpolación (Nivel 0)
+            for (let k = 0; k < 1; k++) {
+                let pts = levels[k];                
+
+                pts.forEach((p, idx) => {
+                    let isEndPoint = (idx === 0) || (idx === pts.length - 1);
+                    let sphere = new THREE.Mesh(sphereGeo, isEndPoint ? sphereMatOrange : sphereMatRed);
+                    sphere.position.copy(p);
+                    pointsGroup.add(sphere);
+                });
+
+                const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xff2222, linewidth: 3 });
+                linesGroup.add(new THREE.Line(lineGeom, lineMat));
+            }
+
+            const colors = [0x4dff4d, 0xffff4d, 0xff00ff, 0x00ffff]; 
+
+            // Dibujar puntos y líneas de cada nivel de interpolación
+            for (let k = 1; k < levels.length; k++) {
+                // Simplified the color index logic to cycle naturally through the available colors.
+                let index = (k - 1) % colors.length;
+                let pts = levels[k];
+                
+                // Corrected the final point logic. It must check if we are at the last level.
+                let isFinalPoint = (k === levels.length - 1);
+                
+                // If it is the final point, use blue (0x4da6ff). Otherwise, use the shared line color.
+                let materialColor = isFinalPoint ? 0x4da6ff : colors[index];
+                let sphereSize = isFinalPoint ? 0.2 : 0.1;
+                let currentSphereGeo = new THREE.SphereGeometry(sphereSize, 16, 16);
+                let sphereMat = new THREE.MeshBasicMaterial({ color: materialColor });
+
+                pts.forEach(p => {
+                    let sphere = new THREE.Mesh(currentSphereGeo, sphereMat);
+                    sphere.position.copy(p);
+                    pointsGroup.add(sphere);
+                });
+
+                if (pts.length > 1) {
+                    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+                    const lineMat = new THREE.LineBasicMaterial({ 
+                        color: colors[index], 
+                        linewidth: isFinalPoint ? 4 : 2 
+                    });
+                    linesGroup.add(new THREE.Line(lineGeom, lineMat));
+                }
+            }
+            
+            // Trazar la porción de la curva dibujada hasta el parámetro actual t
+            if (t > 0) {
+                let drawnVertices = [];
+                let currentStepCount = Math.floor(resolution * t);
+                for (let step = 0; step <= currentStepCount; step++) {
+                    let stepT = step / resolution;
+                    let stepLevels = computeDeCasteljau(controlPoints, stepT);
+                    drawnVertices.push(stepLevels[stepLevels.length - 1][0]);
+                }
+                // Añadir la posición exacta actual para mayor suavidad
+                drawnVertices.push(levels[levels.length - 1][0]);
+                
+                const drawnGeom = new THREE.BufferGeometry().setFromPoints(drawnVertices);
+                const drawnMat = new THREE.LineBasicMaterial({ color: 0x4da6ff, linewidth: 6 });
+                linesGroup.add(new THREE.Line(drawnGeom, drawnMat));
+            }
+        }
+
+        // Inicializar
+        generatePoints(2); 
+        initUI();
+        bindEvents();
+        initWebGL();
+        updateScene();
+
+    </script>
+</body>
+</html>
