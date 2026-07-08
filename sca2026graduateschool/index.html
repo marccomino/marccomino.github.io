@@ -175,6 +175,9 @@
             <div class="disclaimer-box">
                 &#9888; Disclaimer: Please download the SMPLX_NEUTRAL_2020.npz file from the official <a href="https://smpl-x.is.tue.mpg.de/">webpage</a> before running this code.
             </div>
+            <div class="disclaimer-box">
+                &#9888; Disclaimer: This script is intended purely for illustrative and educational purposes to demonstrate the underlying mathematical steps of the SMPL-X model. The pose blendshapes, which control muscle bulges and localized deformations, are mathematically calculated for the initial hardcoded pose and permanently baked into the mesh geometry before importing into Blender. If you manually rotate the bones later inside Blender, the mesh will deform using standard linear blend skinning, but the corrective muscle shapes will not update dynamically.
+            </div>
             <pre><code class="language-python">import bpy
 import numpy as np
 
@@ -269,8 +272,7 @@ bone_names = [f"joint_{i}" for i in range(len(J))]
 for i, joint_pos in enumerate(J):
     bone = armature_data.edit_bones.new(bone_names[i])
     bone.head = joint_pos
-    # Tiny default length; will be overridden dynamically for parents
-    bone.tail = joint_pos + np.array([0.0, 0.0, 0.05])
+    bone.tail = joint_pos + np.array([0.0, 0.1, 0.0])
 
 # Map parents and dynamically connect parent tails to child heads to form a working chain
 for i, parent_idx in enumerate(kintree):
