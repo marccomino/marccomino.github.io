@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Parametric Human Body Models</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai-sublime.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+
+    <style>
+        /* =========================================
+        GLOBAL STYLES & LAYOUT
+        ================================================================================================================================================================================================================= */
+        body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        }
+
+        .content-wrapper {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        }
+
+        section {
+        margin-bottom: 40px;
+        }
+
+        h1 {
+        text-align: center;
+        color: #2c3e50;
+        font-size: 2.2em;
+        margin-bottom: 40px;
+        }
+
+        h2 {
+        color: #2c3e50;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        margin-top: 0px;
+        }
+
+        .clearfix::after {
+        content: "";
+        clear: both;
+        display: table;
+        }
+
+        /* =========================================
+        HEADER & NAVIGATION
+        ================================================================================================================================================================================================================= */
+        .site-header {
+        background-color: #333;
+        padding: 15px 40px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        }
+
+        .site-title {
+        color: #ccc;
+        font-size: 1.8em;
+        margin: 0;
+        margin-right: 40px;
+        font-weight: normal;
+        }
+
+        .nav-links a {
+        color: #aaa;
+        text-decoration: none;
+        margin-right: 25px;
+        font-size: 1.1em;
+        }
+
+        .nav-links a:hover {
+        color: #fff;
+        }
+
+        /* =========================================
+        CONTENT SECTIONS
+        ================================================================================================================================================================================================================= */
+        .bio-text {
+        text-align: justify;
+        font-size: 1.05em;
+        }
+
+        .added-section {
+        background-color: #f8f9fa;
+        padding: 25px;
+        border-left: 4px solid #2980b9;
+        margin-bottom: 40px;
+        }
+        
+        .pdf-container {
+        width: 100%;
+        height: 600px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        }
+
+        pre {
+        background-color: #272822;
+        color: #f8f8f2;
+        padding: 15px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+        }
+        
+        code {
+        font-family: inherit;
+        }
+        
+        .disclaimer-box {
+        background-color: #fdebd0;
+        color: #d35400;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="site-header">
+        <h1 class="site-title">Marc Comino-Trinidad</h1>
+        <nav class="nav-links">
+            <a href="../index.html">&#8592; Back to Portfolio</a>
+        </nav>
+    </header>
+
+    <div class="content-wrapper">
+        
+        <h1>Understanding Parametric Human Body Models</h1>
+
+        <section class="clearfix">
+            <p class="bio-text">
+                For decades, animating humans meant choosing between two extremes: artist-driven rigging that was visually beautiful but completely unscalable and locked to a single character, or raw 3D scans and motion capture data that were highly realistic but incredibly noisy, unorganized, and entirely missing any semantic understanding. If you changed the weight of a character, the manual rigging broke. If you scanned a new person, you had to start the retargeting process from scratch. The core problem was that our representation of the human body lacked an underlying statistical understanding of human nature.
+            </p>
+            <p class="bio-text">
+                Parametric human body models like SMPL or SMPL-X changed everything by turning human anatomy into a continuous, differentiable mathematical function. Instead of representing a human as a collection of thousands of independent and disconnected <em>x, y, z</em> vertex coordinates, a parametric model compresses the entire space of human shape, pose, and communication into three compact, low-dimensional vectors. The shape vector defines who the person is through height, weight, body proportions, and identity. The pose vector controls what the person is doing by handling body joint rotations and kinematics, including the articulation of the jaw and finger joints. Finally, the expression vector captures how the person communicates via facial morph targets that represent complex, identity-independent nuances like happiness, anger, or shock. By passing these parameters through a learned statistical engine, we can instantly generate any human body in any pose with expressive facial features, automated skeleton alignment, and perfect topological consistency.
+            </p>
+        </section>
+
+        <section class="added-section">
+            <h2>Presentation Slides</h2>
+            <div class="pdf-container" style="height:520px;">
+                <iframe src="../resources/2026-sca-understanding-parametric-human-models.pdf" width="100%" height="100%" style="border: none;">
+                    <p>Your browser does not support PDFs. <a href="../resources/2026-sca-understanding-parametric-human-models.pdf">Download the PDF</a>.</p>
+                </iframe>
+            </div>
+        </section>
+
+        <section class="added-section">
+            <h2>Blender Demo Code</h2>
+            <div class="disclaimer-box">
+                &#9888; Disclaimer: Please download the SMPLX_NEUTRAL_2020.npz file from the official <a href="https://smpl-x.is.tue.mpg.de/">webpage</a> before running this code.
+            </div>
+            <pre><code class="language-python">import bpy
+import numpy as np
+
+# Helper function to compute a Rodrigues rotation matrix from an axis-angle vector
+def rodrigues(r):
+    theta_norm = np.linalg.norm(r)
+    if theta_norm < 1e-6:
+        return np.eye(3)
+    r_hat = r / theta_norm
+    K = np.array([
+        [0, -r_hat[2], r_hat[1]],
+        [r_hat[2], 0, -r_hat[0]],
+        [-r_hat[1], r_hat[0], 0]
+    ])
+    return np.eye(3) + np.sin(theta_norm) * K + (1 - np.cos(theta_norm)) * np.dot(K, K)
+
+# Path to your extracted SMPL-X model file (e.g., SMPLX_NEUTRAL.npz)
+model_path = "(...)/SMPLX_NEUTRAL_2020.npz"
+data = np.load(model_path, allow_pickle=True)
+
+# Variable names matching mathematical SMPL notation
+T_bar = data['v_template']          # \bar{T} : Base rest template vertices
+W = data['weights']                 # \mathcal{W} : Linear blend skinning weights matrix
+kintree = data['kintree_table'][0]  # Kinematic tree parent indices for hierarchy
+F = data['f']                       # F : Face topology indices
+
+# Change these values to test different body shapes/identities
+Betas = np.array([1.5, -0.8, 2.0, 0.5, -1.2, 0.3, -0.5, 1.1, -0.2, 0.7])
+
+# Extract the shape blendshapes matrix B_S
+B_s = data['shapedirs'][:, :, :10]
+
+# Decode \beta into Template mesh displacements via dot product
+v_displacements = np.dot(B_s, Betas)
+T_shaped = T_bar + v_displacements
+
+# Define an array for 10 facial expression parameters (Psi)
+Psi = np.array([0.8, -0.5, 1.2, 0.0, -0.3, 0.9, 0.1, -0.4, 0.5, -0.2])
+
+# Extract the expression blendshapes matrix B_E from dimensions 300 to 310
+B_e = data['shapedirs'][:, :, 300:310]
+
+# Decode \psi into facial expression displacements
+v_expr_displacements = np.dot(B_e, Psi)
+
+# Combine base template, body shape, and facial expression displacements
+T_shaped = T_shaped + v_expr_displacements
+
+# Extract the pose blendshapes matrix B_P to calculate volume corrections
+B_p = data['posedirs']
+
+# Dynamically determine the number of pose-driven joints from the tensor shape
+NumJoints = B_p.shape[2] // 9
+
+# Initialize the pose vector array for all joints including the root
+Thetas = np.zeros((NumJoints + 1, 3))
+
+# Apply a rotation to the right hip which is joint index 2 in the standard hierarchy
+Thetas[0] = np.array([0, -np.pi/2, 0])
+Thetas[1] = np.array([-np.pi/2, 0.0, 0.0])
+
+# Compute pose features by converting angles to matrices and subtracting the rest identity
+pose_features = []
+
+# We skip index 0 because the global root rotation does not trigger localized muscle deformations
+for i in range(1, NumJoints + 1):
+    R_matrix = rodrigues(Thetas[i])
+    pose_features.extend((R_matrix - np.eye(3)).flatten())
+pose_features = np.array(pose_features)
+
+# Calculate pose blendshape displacements B_P and stack them onto the shape geometry
+v_posed_displacements = np.dot(B_p, pose_features)
+T_posed = T_shaped + v_posed_displacements
+
+# Compute joint locations J from the base template using the regressor matrix \mathcal{J}
+J_regressor = data['J_regressor']
+if hasattr(J_regressor, 'toarray'):
+    J_regressor = J_regressor.toarray()
+J = np.dot(J_regressor, T_shaped)      # J(\beta) in rest pose where shape coefficients \beta = 0
+
+# Create the Armature object
+armature_data = bpy.data.armatures.new("SMPLX_Armature")
+armature_obj = bpy.data.objects.new("SMPLX_Skeleton", armature_data)
+bpy.context.collection.objects.link(armature_obj)
+
+# Force Blender to enter Edit Mode to construct bones
+bpy.context.view_layer.objects.active = armature_obj
+bpy.ops.object.mode_set(mode='EDIT')
+
+# Step 1: Build the bone hierarchy with initial joint positions from J
+bone_names = [f"joint_{i}" for i in range(len(J))]
+for i, joint_pos in enumerate(J):
+    bone = armature_data.edit_bones.new(bone_names[i])
+    bone.head = joint_pos
+    # Tiny default length; will be overridden dynamically for parents
+    bone.tail = joint_pos + np.array([0.0, 0.0, 0.05])
+
+# Map parents and dynamically connect parent tails to child heads to form a working chain
+for i, parent_idx in enumerate(kintree):
+    if 0 <= parent_idx < len(bone_names) and i < len(bone_names):
+        child_bone = armature_data.edit_bones[bone_names[i]]
+        parent_bone = armature_data.edit_bones[bone_names[parent_idx]]
+        
+        child_bone.parent = parent_bone
+
+# Exit Edit Mode to proceed with geometry creation
+bpy.ops.object.mode_set(mode='OBJECT')
+
+# Ensure the skeleton overlays cleanly through the solid mesh surface
+armature_obj.show_in_front = True
+
+# Apply the mathematical axis-angle rotations visually to Blender's pose bones
+for i, p_bone in enumerate(armature_obj.pose.bones):
+    if i < len(Thetas):
+        r_vec = Thetas[i]
+        angle = np.linalg.norm(r_vec)
+        if angle > 1e-6:
+            axis = r_vec / angle
+            p_bone.rotation_mode = 'AXIS_ANGLE'
+            p_bone.rotation_axis_angle = [angle, axis[0], axis[1], axis[2]]
+        else:
+            p_bone.rotation_mode = 'XYZ'
+            
+# Step 2: Build the Mesh geometry using the base template T_bar and faces F
+mesh_data = bpy.data.meshes.new("SMPLX_Mesh")
+mesh_obj = bpy.data.objects.new("SMPLX_Body", mesh_data)
+bpy.context.collection.objects.link(mesh_obj)
+
+# Map topology from raw data arrays
+mesh_data.from_pydata(T_posed.tolist(), [], F.tolist())
+mesh_data.update()
+
+# Step 3: Map blend weights W to vertex groups
+for i, name in enumerate(bone_names):
+    v_group = mesh_obj.vertex_groups.new(name=name)
+    
+    # Identify non-zero skin weights from matrix W for this specific joint
+    joint_weights = W[:, i]
+    v_indices = np.where(joint_weights > 0.0)[0]
+    
+    for v_idx in v_indices:
+        v_group.add([int(v_idx)], float(joint_weights[v_idx]), 'REPLACE')
+
+# Parent the mesh to the armature with an Armature modifier
+mesh_obj.parent = armature_obj
+modifier = mesh_obj.modifiers.new(name="ArmatureSkin", type='ARMATURE')
+modifier.object = armature_obj</code></pre>
+        </section>
+
+        <section class="added-section">
+            <h2>Bibliography</h2>
+            
+            <p>&bull; Velasquez, H. C., Yiannakidis, A., Shin, S., Becherini, G., Höschle, M., Tesch, J., ... & Black, M. J. (2026). MAMMA: Markerless Accurate Multi-person Motion Acquisition. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 7175-7186).</p>
+            
+            <p>&bull; Casado‐Elvira, A., Comino-Trinidad, M., & Casas, D. (SCA 2022). Pergamo: Personalized 3d garments from monocular video. In Computer Graphics Forum (Vol. 41, No. 8, pp. 293-304).</p>
+            
+            <p>&bull; Loper, M., Mahmood, N., Romero, J., Pons-Moll, G., & Black, M. J. (2015). SMPL: a skinned multi-person linear model. ACM Transactions on Graphics (TOG), 34(6), 1-16.</p>
+            
+            <p>&bull; Pavlakos, G., Choutas, V., Ghorbani, N., Bolkart, T., Osman, A. A., Tzionas, D., & Black, M. J. (2019). Expressive body capture: 3d hands, face, and body from a single image. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (pp. 10975-10985).</p>
+            
+            <p>&bull; Santesteban, I., Garces, E., Otaduy, M. A., & Casas, D. (2020, May). SoftSMPL: data‐driven modeling of nonlinear soft‐tissue dynamics for parametric humans. In Computer Graphics Forum (Vol. 39, No. 2, pp. 65-75).</p>
+            
+            <p>&bull; Casas, D., & Comino-Trinidad, M. (2023). SMPLitex: A Generative Model and Dataset for 3D Human Texture Estimation from Single Image.</p>
+        </section>
+
+    </div>
+
+    <script>hljs.highlightAll();</script>
+</body>
+</html>
